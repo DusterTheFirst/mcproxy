@@ -1,8 +1,8 @@
-use std::io::{self, Write, Read};
-use std::convert::TryInto;
 use byteorder::{BigEndian, ReadBytesExt};
+use std::convert::TryInto;
+use std::io::{self, Read, Write};
 
-use crate::proto::{Packet, var_int, Handshake, string, NextState};
+use crate::proto::{string, var_int, Handshake, NextState, Packet};
 
 /// Additions of manupulating of MC packets to any Write + Read + Sized
 impl<R: Write + Read + Sized> PacketManipulation for R {}
@@ -21,7 +21,7 @@ pub trait PacketManipulation: Write + Read + Sized {
         Ok(Packet {
             id,
             length,
-            data: Vec::from(data)
+            data: Vec::from(data),
         })
     }
 
@@ -36,7 +36,7 @@ pub trait PacketManipulation: Write + Read + Sized {
         Ok(Packet {
             length,
             id: id.value,
-            data
+            data,
         })
     }
 
@@ -56,7 +56,7 @@ pub trait PacketManipulation: Write + Read + Sized {
             protocol_version,
             address,
             port,
-            next_state: NextState::from(next_state)
+            next_state: NextState::from(next_state),
         })
     }
 }

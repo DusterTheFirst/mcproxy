@@ -1,4 +1,4 @@
-use std::io::{BufRead};
+use std::io::BufRead;
 
 impl<R: BufRead> IsOpen for R {}
 

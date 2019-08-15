@@ -2,7 +2,9 @@ use std::io::{self, ErrorKind, Read};
 
 /// Parse in a var int and return the value and its length
 pub fn read<T>(stream: &mut T) -> Result<VarInt, io::Error>
-    where T: Read {
+where
+    T: Read,
+{
     let mut length: i32 = 0;
     let mut result: i32 = 0;
     let mut read: u8;
@@ -24,13 +26,13 @@ pub fn read<T>(stream: &mut T) -> Result<VarInt, io::Error>
 
     Ok(VarInt {
         value: result,
-        length
+        length,
     })
 }
 
 pub struct VarInt {
     pub value: i32,
-    pub length: i32
+    pub length: i32,
 }
 
 /// Convert an integer to a var_int
@@ -47,7 +49,7 @@ pub fn write(value: i32) -> Vec<u8> {
         }
         buf.push(temp);
         mut_val != 0
-    } {};
+    } {}
 
     buf
 }

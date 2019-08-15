@@ -1,7 +1,7 @@
-use std::net::{TcpListener, SocketAddr, IpAddr, Ipv4Addr, TcpStream};
-use std::io::{BufReader, Read, BufWriter, Write, self};
-use std::thread::{Builder, self};
 use std::collections::HashMap;
+use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+use std::thread::{self, Builder};
 
 // TODO: use the one from redox os or whatever
 use ansi_term::Color::*;
@@ -9,11 +9,14 @@ use ansi_term::Color::*;
 pub mod proto;
 pub mod read;
 
-pub use read::{IsOpen};
+pub use read::IsOpen;
 
-use proto::{PacketManipulation, Handshake};
+use proto::{Handshake, PacketManipulation};
 
-pub use proto::{Chat, response::{Players, Player}};
+pub use proto::{
+    response::{Player, Players},
+    Chat,
+};
 
 // pub struct ProxyServer {
 //     server_stream: TcpStream,
@@ -37,14 +40,11 @@ fn main() -> io::Result<()> {
     address_map.insert("otherserver.test.mc".to_owned(), 25566);
 
     // TODO: String?
-    let listener = TcpListener::bind(
-        SocketAddr::new(
-            IpAddr::V4(
-                Ipv4Addr::new(0,0,0,0)
-            ),
-            25569
-        )
-    ).expect("Unable to bind to socket");
+    let listener = TcpListener::bind(SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+        25569,
+    ))
+    .expect("Unable to bind to socket");
 
     println!("Listening for connections on port 25569");
 
@@ -55,33 +55,33 @@ fn main() -> io::Result<()> {
 
                 let address_map = address_map.clone();
 
-                Builder::new()
-                    .name(format!("#{}", connection_id))
-                    .spawn(move || -> io::Result<()> {
+                Builder::new().name(format!("#{}", connection_id)).spawn(
+                    move || -> io::Result<()> {
                         let handle = thread::current();
                         let handle_name = handle.name().unwrap_or("<UNNAMED>");
 
                         println!("[{}] {}", handle_name, Green.paint("New connection"));
 
-                                            
-                        // First, the client sends a Handshake packet with its state set to 1.                     
+                        // First, the client sends a Handshake packet with its state set to 1.
                         let handshake: Handshake = client_stream.read_handshake()?;
                         // println!("{}", RGB(128, 128, 128).paint("HANDSHAKE"));
                         // println!("{}\n\n", handshake);
-                        println!("[{}] Connection using Address: {} and Port: {}", handle_name, handshake.address, handshake.port);
+                        println!(
+                            "[{}] Connection using Address: {} and Port: {}",
+                            handle_name, handshake.address, handshake.port
+                        );
 
                         // Handle invalid ports
                         let port = address_map.get(&handshake.address).unwrap();
 
-                        println!("[{}] Attempting to connect to the server running on port {}", handle_name, port);
-                        let mut server_stream = TcpStream::connect(
-                            SocketAddr::new(
-                                IpAddr::V4(
-                                    Ipv4Addr::new(0,0,0,0)
-                                ),
-                                *port
-                            )
-                        )?;
+                        println!(
+                            "[{}] Attempting to connect to the server running on port {}",
+                            handle_name, port
+                        );
+                        let mut server_stream = TcpStream::connect(SocketAddr::new(
+                            IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                            *port,
+                        ))?;
                         println!("[{}] Connected to proxied server", handle_name);
 
                         // TODO: Utilize TcpStreams' peek to never have to hold packets
@@ -112,7 +112,7 @@ fn main() -> io::Result<()> {
                                 Ok(())
                             })?;
 
-                            let client_thread = Builder::new()
+                        let client_thread = Builder::new()
                             .name(format!("#{} => Client", connection_id))
                             .spawn(move || -> io::Result<()> {
                                 let handle = thread::current();
@@ -131,15 +131,15 @@ fn main() -> io::Result<()> {
                                 Ok(())
                             })?;
 
-
                         // TODO: Manage threads, dont orphan
                         server_thread.join().unwrap()?;
                         client_thread.join().unwrap()?;
-                        
+
                         Ok(())
-                    })?;
-            },
-            Err(e) => eprintln!("{:?}", e)
+                    },
+                )?;
+            }
+            Err(e) => eprintln!("{:?}", e),
         }
     }
 
