@@ -36,17 +36,17 @@ fn main() -> io::Result<()> {
     println!("Starting proxy");
 
     let mut address_map = HashMap::<String, u16>::new();
-    address_map.insert("server.test.mc".to_owned(), 25565);
+    address_map.insert("server.test.mc".to_owned(), 25567);
     address_map.insert("otherserver.test.mc".to_owned(), 25566);
 
     // TODO: String?
     let listener = TcpListener::bind(SocketAddr::new(
         IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-        25569,
+        25565,
     ))
     .expect("Unable to bind to socket");
 
-    println!("Listening for connections on port 25569");
+    println!("Listening for connections on port 25565");
 
     for stream in listener.incoming() {
         match stream {
@@ -79,7 +79,7 @@ fn main() -> io::Result<()> {
                             handle_name, port
                         );
                         let mut server_stream = TcpStream::connect(SocketAddr::new(
-                            IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                            IpAddr::V4(Ipv4Addr::new(73, 38, 152, 65)),
                             *port,
                         ))?;
                         println!("[{}] Connected to proxied server", handle_name);
@@ -94,7 +94,7 @@ fn main() -> io::Result<()> {
                         let mut server_write_stream = BufWriter::new(server_stream.try_clone()?);
 
                         let server_thread = Builder::new()
-                            .name(format!("#{} => Server", connection_id))
+                            .name(format!("#{} => Server:{}", connection_id, port))
                             .spawn(move || -> io::Result<()> {
                                 let handle = thread::current();
                                 let handle_name = handle.name().unwrap_or("<UNNAMED>");
