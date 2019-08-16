@@ -6,7 +6,7 @@
 ![Clippy](https://img.shields.io/badge/linter-clippy-informational?logo=rust)
 ![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-informational?logo=rust)
 
-> Modification of mcsleep to work as a webpanel
+> Fork of mcsleep to work as a reverse proxy for minecraft servers
 
 
         MCProxy - A fork off of mcsleep to work as a low cost minecraft server proxy
