@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+    - uses: actions/checkout@v1
     - name: Run clippy
       run: cargo clippy --verbose
   # Check code formatting (after build)
@@ -30,5 +31,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
+    - uses: actions/checkout@v1
     - name: Run rustfmt
       run: cargo fmt -- --check
