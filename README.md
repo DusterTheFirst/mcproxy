@@ -1,4 +1,10 @@
 # MCPROXY
+[![GitHub License](https://img.shields.io/github/license/dusterthefirst/mcproxy?logo=gnu)](https://github.com/DusterTheFirst/mcproxy/blob/master/LICENSE.md)
+[![GitHub issues](https://img.shields.io/github/issues/dusterthefirst/mcproxy?logo=github)](https://github.com/DusterTheFirst/mcproxy/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/dusterthefirst/mcproxy?logo=github)](https://github.com/DusterTheFirst/mcproxy/pulls)
+[![Actions Status](https://wdp9fww0r9.execute-api.us-west-2.amazonaws.com/production/badge/dusterthefirst/mcproxy)](https://wdp9fww0r9.execute-api.us-west-2.amazonaws.com/production/results/dusterthefirst/mcproxy)
+![Clippy](https://img.shields.io/badge/linter-clippy-informational?logo=rust)
+![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-informational?logo=rust)
 
 > Modification of mcsleep to work as a webpanel
 
