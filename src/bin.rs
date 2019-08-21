@@ -36,8 +36,12 @@ fn main() -> io::Result<()> {
     println!("Starting proxy");
 
     let mut address_map = HashMap::<String, u16>::new();
-    address_map.insert("server.test.mc".to_owned(), 25567);
-    address_map.insert("otherserver.test.mc".to_owned(), 25566);
+    address_map.insert("0.mcproxy.dusterthefirst.com".to_owned(), 25570);
+    address_map.insert("1.mcproxy.dusterthefirst.com".to_owned(), 25571);
+    address_map.insert("2.mcproxy.dusterthefirst.com".to_owned(), 25572);
+    address_map.insert("3.mcproxy.dusterthefirst.com".to_owned(), 25573);
+    address_map.insert("4.mcproxy.dusterthefirst.com".to_owned(), 25574);
+    address_map.insert("5.mcproxy.dusterthefirst.com".to_owned(), 25575);
 
     // TODO: String?
     let listener = TcpListener::bind(SocketAddr::new(
@@ -72,15 +76,28 @@ fn main() -> io::Result<()> {
                         );
 
                         // Handle invalid ports
-                        let port = address_map.get(&handshake.address).unwrap();
+                        let port = address_map.get(&handshake.address);
+
+                        let port: u16 = match port {
+                            Some(p) => *p,
+
+                            None => {
+                                 println!(
+                                    "[{}] No mapping exists for {}",
+                                    handle_name, handshake.address
+                                );
+
+                                return Ok(());
+                            }
+                        };
 
                         println!(
                             "[{}] Attempting to connect to the server running on port {}",
                             handle_name, port
                         );
                         let mut server_stream = TcpStream::connect(SocketAddr::new(
-                            IpAddr::V4(Ipv4Addr::new(73, 38, 152, 65)),
-                            *port,
+                            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                            port,
                         ))?;
                         println!("[{}] Connected to proxied server", handle_name);
 
@@ -100,6 +117,7 @@ fn main() -> io::Result<()> {
                                 let handle_name = handle.name().unwrap_or("<UNNAMED>");
 
                                 while client_read_stream.is_open() {
+                                    // TODO: more bytes per transfer, chat real slow
                                     let mut buf = [0];
 
                                     client_read_stream.read_exact(&mut buf)?;
