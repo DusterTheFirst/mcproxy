@@ -34,11 +34,15 @@ jobs:
     - uses: actions/checkout@v1
     - name: Check Rust formatting
       run: cargo fmt -- --check
-      id: 1
+      id: check
       continue-on-error: true
+    - name: Dump job context
+      env:
+        JOB_CONTEXT: ${{ toJson(job) }}
+      run: echo "$JOB_CONTEXT"
     - name: Fix Rust formatting
-      if: job.steps.1.status == 'failure'
+      if: job.steps.check.status == 'failure'
       run: cargo fmt
     - name: Commit changes
-      if: job.steps.1.status == 'failure'
+      if: job.steps.check.status == 'failure'
       run: git commit -m 'Fix rustfmt errors' --allow-empty
