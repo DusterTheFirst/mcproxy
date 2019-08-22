@@ -36,7 +36,6 @@ jobs:
       run: cargo fmt -- --check
     - name: Fix Rust formatting
       if: failure()
-      run: cargo fmt
-    - name: Commit changes
-      if: success()
-      run: git commit -m 'Fix rustfmt errors' --allow-empty
+      run:
+       - cargo fmt
+       - git commit -m 'Fix rustfmt errors' --allow-empty
