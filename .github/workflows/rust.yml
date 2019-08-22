@@ -37,8 +37,8 @@ jobs:
       id: check
       continue-on-error: true
     - name: Fix Rust formatting
-      if: job.steps.check.status == failure
+      if: job.steps.check.status == 'failure'
       run: cargo fmt
     - name: Commit changes
-      if: job.steps.check.status == failure
+      if: job.steps.check.status == 'failure'
       run: git commit -m 'Fix rustfmt errors' --allow-empty
