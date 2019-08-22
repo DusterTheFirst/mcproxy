@@ -34,10 +34,3 @@ jobs:
     - uses: actions/checkout@v1
     - name: Check Rust formatting
       run: cargo fmt -- --check
-      id: check
-    - name: Fix Rust formatting
-      if: job.steps.check.status == 'Failure'
-      run: cargo fmt
-    - name: Commit changes
-      if: job.steps.check.status == 'Failure'
-      run: git commit -m 'Fix rustfmt errors' --allow-empty

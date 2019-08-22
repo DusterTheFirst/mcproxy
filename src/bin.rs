@@ -82,7 +82,7 @@ fn main() -> io::Result<()> {
                             Some(p) => *p,
 
                             None => {
-                                 println!(
+                                println!(
                                     "[{}] No mapping exists for {}",
                                     handle_name, handshake.address
                                 );
