@@ -35,7 +35,6 @@ jobs:
     - name: Check Rust formatting
       run: cargo fmt -- --check
       id: check
-      continue-on-error: true
     - name: Dump job context
       env:
         JOB_CONTEXT: ${{ toJson(job) }}
