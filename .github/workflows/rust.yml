@@ -32,5 +32,11 @@ jobs:
     needs: build
     steps:
     - uses: actions/checkout@v1
-    - name: Run rustfmt
+    - name: Check Rust formatting
       run: cargo fmt -- --check
+    - name: Fix Rust formatting
+      if: failure
+      run: cargo fmt
+    - name: Commit changes
+      if: success
+      run: git commit -m 'Fix rustfmt errors' --allow-empty
