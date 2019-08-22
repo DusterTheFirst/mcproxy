@@ -39,7 +39,7 @@ jobs:
       env:
         JOB_CONTEXT: ${{ toJson(job) }}
       run: echo "$JOB_CONTEXT"
-      if: always
+      if: always()
     - name: Fix Rust formatting
       if: job.steps.check.status == 'failure'
       run: cargo fmt
