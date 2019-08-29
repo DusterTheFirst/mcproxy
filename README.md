@@ -2,7 +2,8 @@
 [![GitHub License](https://img.shields.io/github/license/dusterthefirst/mcproxy?logo=gnu)](https://github.com/DusterTheFirst/mcproxy/blob/master/LICENSE.md)
 [![GitHub issues](https://img.shields.io/github/issues/dusterthefirst/mcproxy?logo=github)](https://github.com/DusterTheFirst/mcproxy/issues)
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/dusterthefirst/mcproxy?logo=github)](https://github.com/DusterTheFirst/mcproxy/pulls)
-[![Actions Status](https://github.com/DusterTheFirst/mcproxy/workflows/Rust/badge.svg)](https://github.com/DusterTheFirst/mcproxy/actions)
+[![Actions Status](https://github.com/DusterTheFirst/mcproxy/workflows/Test/badge.svg)](https://github.com/DusterTheFirst/mcproxy/actions)
+[![Actions Status](https://github.com/DusterTheFirst/mcproxy/workflows/Deploy/badge.svg)](https://github.com/DusterTheFirst/mcproxy/actions)
 ![Clippy](https://img.shields.io/badge/linter-clippy-informational?logo=rust)
 ![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-informational?logo=rust)
 

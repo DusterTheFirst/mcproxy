@@ -1,0 +1,44 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  mac:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --verbose --release
+      - name: Rename executable
+        run: mv target/release/mcproxy target/release/mcproxy-macos
+      - uses: actions/upload-artifact@master
+        with:
+          name: mcproxy-macos
+          path: target/release
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --verbose --release
+      - name: Rename executable
+        run: mv target/release/mcproxy target/release/mcproxy-ubuntu
+      - uses: actions/upload-artifact@master
+        with:
+          name: mcproxy-ubuntu
+          path: target/release
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --verbose --release
+      - name: Rename executable
+        run: rename target\release\mcproxy.exe target\release\mcproxy-windows.exe
+      - uses: actions/upload-artifact@master
+        with:
+          name: mcproxy-windows.exe
+          path: target/release
+  
