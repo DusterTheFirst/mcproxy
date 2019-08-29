@@ -39,73 +39,76 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, test]
     steps:
-      - run: rustc --print target-list
-      - run: ls
-      - run: env
       - uses: actions/checkout@v1
+      - name: Add targets
+        run: rustup target add x86_64-pc-windows-gnu i686-pc-windows-gnu
       - name: Build 64 bit Windows GNU
         run: cargo build --verbose --release --target x86_64-pc-windows-gnu
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-windows-x64
+        run: mv target/x86_64-pc-windows-gnu/release/mcproxy target/x86_64-pc-windows-gnu/release/mcproxy-windows-x64
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-windows-x32
-          path: target/release
+          path: target/x86_64-pc-windows-gnu/release
       - name: Build 32 bit Windows GNU
         run: cargo build --verbose --release --target i686-pc-windows-gnu
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-windows-x32
+        run: mv target/i686-pc-windows-gnu/release/mcproxy target/i686-pc-windows-gnu/release/mcproxy-windows-x32
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-windows-x32
-          path: target/release
+          path: target/i686-pc-windows-gnu/release
   artifacts-macos:
     runs-on: ubuntu-latest
     needs: [build, test]
     steps:
       - uses: actions/checkout@v1
+      - name: Add targets
+        run: rustup target add x86_64-apple-darwin i686-apple-darwin
       - name: Build 64 bit Apple Darwin
         run: cargo build --verbose --release --target x86_64-apple-darwin
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-apple-x64
+        run: mv target/x86_64-apple-darwin/release/mcproxy target/x86_64-apple-darwin/release/mcproxy-apple-x64
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-apple-x64
-          path: target/release
+          path: target/x86_64-apple-darwin/release
       - name: Build 32 bit Apple Darwin
         run: cargo build --verbose --release --target i686-apple-darwin
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-apple-x32
+        run: mv target/i686-apple-darwin/release/mcproxy target/i686-apple-darwin/release/mcproxy-apple-x32
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-apple-x32
-          path: target/release
+          path: target/i686-apple-darwin/release
   artifacts-linux:
     runs-on: ubuntu-latest
     needs: [build, test]
     steps:
       - uses: actions/checkout@v1
+      - name: Add targets
+        run: rustup target add x86_64-unknown-linux-gnu i686-unknown-linux-gnu aarch-unknown-linux-gnu
       - name: Build 64 bit Linux GNU
         run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-linux-x64
+        run: mv target/x86_64-unknown-linux-gnu/release/mcproxy target/x86_64-unknown-linux-gnu/release/mcproxy-linux-x64
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-linux-x64
-          path: target/release
+          path: target/x86_64-unknown-linux-gnu/release
       - name: Build 32 bit Linux GNU
-        run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
+        run: cargo build --verbose --release --target i686-unknown-linux-gnu
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-linux-x32
+        run: mv target/i686-unknown-linux-gnu/release/mcproxy target/i686-unknown-linux-gnu/release/mcproxy-linux-x32
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-linux-x32
-          path: target/release
+          path: target/i686-unknown-linux-gnu/release
       - name: Build aarch Linux GNU
         run: cargo build --verbose --release --target aarch-unknown-linux-gnu
       - name: Rename file
-        run: mv target/release/mcproxy target/release/mcproxy-linux-aarch
+        run: mv target/aarch-unknown-linux-gnu/release/mcproxy target/aarch-unknown-linux-gnu/release/mcproxy-linux-aarch
       - uses: actions/upload-artifact@master
         with:
           name: mcproxy-linux-aarch
-          path: target/release
+          path: target/aarch-unknown-linux-gnu/release
