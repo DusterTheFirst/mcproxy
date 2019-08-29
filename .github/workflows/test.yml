@@ -39,6 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, test]
     steps:
+      - run: rustc --print target-list
+      - run: ls
+      - run: env
       - uses: actions/checkout@v1
       - name: Build 64 bit Windows GNU
         run: cargo build --verbose --release --target x86_64-pc-windows-gnu
