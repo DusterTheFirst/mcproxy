@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Add targets
-        run: rustup target add x86_64-unknown-linux-gnu i686-unknown-linux-gnu aarch-unknown-linux-gnu
+        run: rustup target add x86_64-unknown-linux-gnu i686-unknown-linux-gnu aarch64-unknown-linux-gnu
       - name: Build 64 bit Linux GNU
         run: cargo build --verbose --release --target x86_64-unknown-linux-gnu
       - name: Rename file
@@ -104,11 +104,11 @@ jobs:
         with:
           name: mcproxy-linux-x32
           path: target/i686-unknown-linux-gnu/release
-      - name: Build aarch Linux GNU
-        run: cargo build --verbose --release --target aarch-unknown-linux-gnu
+      - name: Build aarch64 Linux GNU
+        run: cargo build --verbose --release --target aarch64-unknown-linux-gnu
       - name: Rename file
-        run: mv target/aarch-unknown-linux-gnu/release/mcproxy target/aarch-unknown-linux-gnu/release/mcproxy-linux-aarch
+        run: mv target/aarch64-unknown-linux-gnu/release/mcproxy target/aarch64-unknown-linux-gnu/release/mcproxy-linux-aarch64
       - uses: actions/upload-artifact@master
         with:
-          name: mcproxy-linux-aarch
-          path: target/aarch-unknown-linux-gnu/release
+          name: mcproxy-linux-aarch64
+          path: target/aarch64-unknown-linux-gnu/release
