@@ -12,8 +12,8 @@ jobs:
       run: cargo build --verbose --release
     - uses: actions/upload-artifact@master
       with:
-        name: mcproxy
-        path: target/release
+        name: binaries
+        path: target/release/mcproxy
   # Test the program (after build)
   test:
     runs-on: ubuntu-latest
