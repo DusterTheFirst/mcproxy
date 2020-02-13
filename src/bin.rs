@@ -65,7 +65,7 @@ async fn main() -> io::Result<()> {
     );
     address_map.insert(
         "localhost".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 25580),
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25580),
     );
 
     // TODO: String?
