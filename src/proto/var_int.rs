@@ -1,9 +1,11 @@
-use std::io::{self, ErrorKind, Read};
+use async_std::io::{self, ErrorKind, Read};
+use async_std::prelude::*;
+use std::marker::Unpin;
 
 /// Parse in a var int and return the value and its length
-pub fn read<T>(stream: &mut T) -> Result<VarInt, io::Error>
+pub async fn read<T>(stream: &mut T) -> Result<VarInt, io::Error>
 where
-    T: Read,
+    T: Read + Unpin,
 {
     let mut length: i32 = 0;
     let mut result: i32 = 0;
@@ -11,7 +13,7 @@ where
 
     while {
         let mut buf = [0];
-        stream.read_exact(&mut buf).unwrap();
+        stream.read(&mut buf).await?;
         read = buf[0];
         let value = read & 0b0111_1111;
         result |= (i32::from(value)) << (7 * length);
