@@ -1,8 +1,8 @@
+use async_std::io::{self, Read, Write};
+use async_std::prelude::*;
+use async_trait::async_trait;
 use byteorder::{BigEndian, ReadBytesExt};
 use std::convert::TryInto;
-use async_std::io::{self, Read, Write};
-use async_trait::async_trait;
-use async_std::prelude::*;
 use std::marker::Unpin;
 
 use crate::proto::{string, var_int, Handshake, NextState, Packet};
