@@ -1,0 +1,24 @@
+# A map of server addresses
+[servers]
+"0.mcproxy.dusterthefirst.com" = "127.0.0.1:25570"
+"1.mcproxy.dusterthefirst.com" = "127.0.0.1:25571"
+"2.mcproxy.dusterthefirst.com" = "127.0.0.1:25572"
+"3.mcproxy.dusterthefirst.com" = "127.0.0.1:25573"
+"4.mcproxy.dusterthefirst.com" = "127.0.0.1:25574"
+"5.mcproxy.dusterthefirst.com" = "127.0.0.1:25575"
+"localhost" = "127.0.0.1:25580"
+
+# Configuration for the proxy server
+[proxy]
+# The port to bind to
+port = 25565
+
+[placeholder_server]
+# The message to send when a player attempts to join the server
+kick_message = "Unable to connect to the server"
+
+[placeholder_server.responses]
+# The file (if any) to the config of the response to send when a server cannot be connected to
+offline = "./example/placeholder_servers/offline.toml"
+# The file (if any) to the config of the response to send when there is no server mapping found
+no_mapping = "./example/placeholder_servers/no_mapping.toml"

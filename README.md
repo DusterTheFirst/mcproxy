@@ -7,10 +7,10 @@
 ![Clippy](https://img.shields.io/badge/linter-clippy-informational?logo=rust)
 ![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-informational?logo=rust)
 
-> Fork of mcsleep to work as a reverse proxy for minecraft servers
+> Extention of [mcsleep](https://github.com/DusterTheFirst/MGMT/tree/master/mcsleep) to work as a reverse proxy for minecraft servers
 
 
-        MCProxy - A fork off of mcsleep to work as a low cost minecraft server proxy
+        MCProxy - Low cost minecraft reverse proxy
         Copyright (C) 2019  Zachary Kohnen (DusterTheFirst)
 
         This program is free software: you can redistribute it and/or modify

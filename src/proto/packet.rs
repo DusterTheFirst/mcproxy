@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
@@ -46,52 +46,62 @@ impl Display for Handshake {
 
 /// Response packet structs
 pub mod response {
-    use serde::Serialize;
+    use super::Chat;
+    use serde::{Deserialize, Serialize};
 
     /// The JSON response to a ping
-    #[derive(Serialize)]
+    #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct Response {
         pub version: Version,
         pub players: Players,
-        pub description: super::Chat,
+        pub description: Chat,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub favicon: Option<String>,
     }
 
     /// The version part of the JSON response to a ping
-    #[derive(Serialize, Clone)]
+    #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct Version {
         pub name: String,
         pub protocol: u16,
     }
 
-    #[derive(Serialize, Clone)]
+    #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct Players {
         pub max: u16,
         pub online: u16,
         pub sample: Vec<Player>,
     }
 
-    #[derive(Serialize, Clone)]
+    #[derive(Serialize, Deserialize, Clone, Debug)]
     pub struct Player {
         pub name: String,
         pub id: String,
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
 /// A minecraft chat object
-pub struct Chat {
-    pub text: String,
-    pub bold: bool,
-    pub italic: bool,
-    pub underlined: bool,
-    pub strikethrough: bool,
-    pub obfuscated: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub extra: Option<Vec<Chat>>,
+pub enum Chat {
+    ChatObject {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        bold: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        italic: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        underlined: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        strikethrough: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        obfuscated: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        color: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        extra: Option<Vec<Chat>>,
+    },
+    String(String),
 }
 
 #[derive(Debug)]

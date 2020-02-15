@@ -7,89 +7,58 @@ use std::collections::HashMap;
 // TODO: use the one from redox os or whatever
 use ansi_term::Color::*;
 
+pub mod config;
 pub mod proto;
-pub mod read;
+pub mod proxy_server;
 
-pub use read::IsOpen;
-
+use config::{Config, PlaceholderServerResponsesParsed};
 use proto::{Handshake, PacketManipulation};
-
-pub use proto::{
-    response::{Player, Players},
-    Chat,
-};
-
-// pub struct ProxyServer {
-//     server_stream: TcpStream,
-//     client_stream: TcpStream
-// }
-
-// impl ProxyServer {
-//     pub fn new(server_stream: TcpStream, client_stream: TcpStream) -> ProxyServer {
-//         ProxyServer {
-//             server_stream,
-//             client_stream
-//         }
-//     }
-// }
+use proxy_server::ProxyServer;
 
 #[async_std::main]
 async fn main() -> io::Result<()> {
     println!("Starting proxy");
 
     // TODO: config file + cmd line opts
-    let mut address_map = HashMap::<String, SocketAddr>::new();
-    address_map.insert(
-        "0.mcproxy.dusterthefirst.com".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25570),
-    );
-    address_map.insert(
-        "1.mcproxy.dusterthefirst.com".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25571),
-    );
-    address_map.insert(
-        "2.mcproxy.dusterthefirst.com".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25572),
-    );
-    address_map.insert(
-        "3.mcproxy.dusterthefirst.com".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25573),
-    );
-    address_map.insert(
-        "4.mcproxy.dusterthefirst.com".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25574),
-    );
-    address_map.insert(
-        "5.mcproxy.dusterthefirst.com".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25575),
-    );
-    address_map.insert(
-        "localhost".to_owned(),
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 25580),
-    );
+    let config = Config::load("./example/config.toml").await?;
 
-    // TODO: String?
+    let server_responses = config.placeholder_server.responses.load().await?;
+
     let listener = TcpListener::bind(SocketAddr::new(
         IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-        25565,
+        config.proxy.port,
     ))
     .await
     .expect("Unable to bind to socket");
 
+    // Listen for incoming connections
     let mut incoming = listener.incoming();
+    println!("Listening for connections on port {}", config.proxy.port);
 
-    println!("Listening for connections on port 25565");
-
+    // Accept connections as they come in
     while let Some(stream) = incoming.next().await {
         match stream {
             Ok(client_stream) => {
-                let address_map = address_map.clone();
+                // Get the map of addresseses
+                let address_map = config.servers.clone();
 
+                // Get the responses that are possible
+                let server_responses = server_responses.clone();
+
+                // Fork off the connection handling
                 task::spawn(async {
+                    // Get the connection id
                     let connection_id = client_stream.peer_addr().unwrap().port();
 
-                    let res = handle_connection(connection_id, address_map, client_stream).await;
-                    match res {
+                    // Handle the connection
+                    match handle_connection(
+                        connection_id,
+                        address_map,
+                        server_responses,
+                        client_stream,
+                    )
+                    .await
+                    {
                         Ok(_) => {}
                         Err(e) => {
                             eprintln!("Error in handling connection: {}", e);
@@ -107,6 +76,7 @@ async fn main() -> io::Result<()> {
 async fn handle_connection(
     connection_id: u16,
     address_map: HashMap<String, SocketAddr>,
+    server_responses: PlaceholderServerResponsesParsed,
     mut client_stream: TcpStream,
 ) -> io::Result<()> {
     // TODO: Handle legacy ping
@@ -121,9 +91,10 @@ async fn handle_connection(
         connection_id, handshake.address, handshake.port, handshake.protocol_version
     );
 
-    // Handle invalid ports
+    // Load mapping
     let mapping = address_map.get(&handshake.address);
 
+    // Handle mapping
     let address = match mapping {
         Some(a) => a,
         None => {
@@ -132,7 +103,13 @@ async fn handle_connection(
                 connection_id, handshake.address
             );
 
-            // TODO: dummy motd
+            if let Some(response) = server_responses.no_mapping {
+                println!(
+                    "[{} => Client] Responding with no_mapping motd",
+                    connection_id
+                );
+                client_stream.write_response(&response).await?;
+            }
 
             return Ok(());
         }
@@ -142,7 +119,22 @@ async fn handle_connection(
         "[{}] Attempting to connect to the server running on address {}",
         connection_id, address
     );
-    let mut server_stream = TcpStream::connect(address).await?;
+    let mut server_stream = match TcpStream::connect(address).await {
+        Ok(stream) => stream,
+        Err(e) => {
+            eprintln!(
+                "[{}] Failed to connect to proxied server: {}",
+                connection_id, e
+            );
+
+            if let Some(response) = server_responses.offline {
+                println!("[{} => Client] Responding with offline motd", connection_id);
+                client_stream.write_response(&response).await?;
+            }
+
+            return Ok(());
+        }
+    };
     println!("[{}] Connected to proxied server", connection_id);
 
     // TODO: Utilize TcpStreams' peek to never have to hold packets
@@ -150,27 +142,12 @@ async fn handle_connection(
         .write_packet(handshake.packet.id, &handshake.packet.data)
         .await?;
 
-    let server_task = async {
-        match io::copy(client_stream.clone(), server_stream.clone()).await {
-            Ok(_) => println!("[{} => Server] Stream Closed successfully", connection_id),
-            Err(e) => eprint!(
-                "[{} => Server] Stream Closed with error: {}",
-                connection_id, e
-            ),
-        }
-    };
+    // Spin up constant proxy until the connection is complete
+    ProxyServer::new(server_stream, client_stream, connection_id)
+        .start()
+        .await;
 
-    let client_task = async {
-        match io::copy(server_stream.clone(), client_stream.clone()).await {
-            Ok(_) => println!("[{} => Client] Stream Closed successfully", connection_id),
-            Err(e) => eprint!(
-                "[{} => Client] Stream Closed with error: {}",
-                connection_id, e
-            ),
-        }
-    };
-
-    client_task.join(server_task).await;
+    println!("[{}] Connection closed", connection_id);
 
     Ok(())
 }

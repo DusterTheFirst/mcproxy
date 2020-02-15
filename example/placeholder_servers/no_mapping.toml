@@ -1,0 +1,44 @@
+# The favicon to show
+favicon = "./example/StructureVoidNew.png"
+
+# The version to broadcast to the querying server
+[version]
+# The version name to show on hover
+name = "Server does not exist"
+# The protocol version
+protocol = 0
+
+# The players listing
+[players]
+# The maximum player count
+max = 0
+# The online player count
+online = 0
+
+# The list of players to show on hover
+[[players.sample]]
+# The "player" name
+name = "§4No server exists under this domain"
+id = "00000000-0000-0000-0000-000000000000"
+
+[[players.sample]]
+name = "§9Check your spelling and try again"
+id = "00000000-0000-0000-0000-000000000000"
+
+# The MOTD
+[description]
+# The text
+text = "[mcproxy]"
+# The color of the text
+color = "red"
+
+# Other components
+[[description.extra]]
+text = " Server not found\n"
+bold = true
+color = "dark_red"
+
+[[description.extra]]
+text = "Contact your server administrator for assistance"
+italic = true
+color = "gold"

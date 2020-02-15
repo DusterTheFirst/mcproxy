@@ -5,7 +5,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use std::convert::TryInto;
 use std::marker::Unpin;
 
-use crate::proto::{string, var_int, Handshake, NextState, Packet};
+use crate::proto::{response::Response, string, var_int, Handshake, NextState, Packet};
 
 /// Additions of manupulating of MC packets to any Write + Read + Sized
 impl<R: Write + Read + Unpin> PacketManipulation for R {}
@@ -13,7 +13,7 @@ impl<R: Write + Read + Unpin> PacketManipulation for R {}
 #[async_trait]
 pub trait PacketManipulation: Write + Read + Unpin + Sized {
     /// Write a packet and output its data
-    async fn write_packet(&mut self, id: i32, data: &[u8]) -> Result<Packet, io::Error> {
+    async fn write_packet(&mut self, id: i32, data: &[u8]) -> io::Result<Packet> {
         let ser_id = var_int::write(id);
         let length = (data.len() + ser_id.len()).try_into().unwrap();
         let ser_length = var_int::write(length);
@@ -30,7 +30,7 @@ pub trait PacketManipulation: Write + Read + Unpin + Sized {
     }
 
     /// Read a packet and output its data
-    async fn read_packet(&mut self) -> Result<Packet, io::Error> {
+    async fn read_packet(&mut self) -> io::Result<Packet> {
         let length = var_int::read(self).await?.value;
         let id = var_int::read(self).await?;
         let mut data = vec![0u8; (length - id.length).try_into().unwrap()];
@@ -45,7 +45,7 @@ pub trait PacketManipulation: Write + Read + Unpin + Sized {
     }
 
     /// Read the handshake packet in and return the data from it
-    async fn read_handshake(&mut self) -> Result<Handshake, io::Error> {
+    async fn read_handshake(&mut self) -> io::Result<Handshake> {
         let packet = self.read_packet().await?;
         let mut data_buf = packet.data.as_slice();
 
@@ -62,5 +62,11 @@ pub trait PacketManipulation: Write + Read + Unpin + Sized {
             port,
             next_state: NextState::from(next_state),
         })
+    }
+
+    async fn write_response(&mut self, response: &Response) -> io::Result<Packet> {
+        let response = string::write(&serde_json::to_string(response).unwrap());
+
+        self.write_packet(0x00, &response).await
     }
 }

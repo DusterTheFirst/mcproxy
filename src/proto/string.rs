@@ -1,7 +1,7 @@
 use crate::proto::var_int;
-use std::convert::TryInto;
 use async_std::io::{self, Read};
 use async_std::prelude::*;
+use std::convert::TryInto;
 use std::marker::Unpin;
 
 // Generate a UTF 8 string with a var_int size prefix
