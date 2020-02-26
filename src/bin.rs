@@ -1,8 +1,12 @@
+#[macro_use]
+extern crate log;
+
 use async_std::io;
-use async_std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+use async_std::net::{SocketAddr, TcpListener, TcpStream};
 use async_std::prelude::*;
 use async_std::task;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 // TODO: use the one from redox os or whatever
 use ansi_term::Color::*;
@@ -17,15 +21,23 @@ use proxy_server::ProxyServer;
 
 #[async_std::main]
 async fn main() -> io::Result<()> {
-    println!("Starting proxy");
+    if cfg!(debug_assertions) {
+        dotenv::from_filename(".dev.env").ok();
+    } else {
+        dotenv::dotenv().ok();
+    }
+    pretty_env_logger::init();
+
+    info!("Starting proxy");
 
     // TODO: config file + cmd line opts
-    let config = Config::load("./example/config.toml").await?;
+    let config: Config = Config::load("./example/config.toml").await?;
 
-    let server_responses = config.placeholder_server.responses.load().await?;
+    let address_map = Arc::new(config.servers);
+    let server_responses: Arc<PlaceholderServerResponsesParsed> = Arc::new(config.placeholder_server.responses.load().await?);
 
     let listener = TcpListener::bind(SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+        config.proxy.address,
         config.proxy.port,
     ))
     .await
@@ -33,16 +45,14 @@ async fn main() -> io::Result<()> {
 
     // Listen for incoming connections
     let mut incoming = listener.incoming();
-    println!("Listening for connections on port {}", config.proxy.port);
+    info!("Listening for connections on port {} and address {}", config.proxy.port, config.proxy.address);
 
     // Accept connections as they come in
     while let Some(stream) = incoming.next().await {
         match stream {
             Ok(client_stream) => {
-                // Get the map of addresseses
-                let address_map = config.servers.clone();
-
-                // Get the responses that are possible
+                // Clone pointers to the address map and server responses
+                let address_map = address_map.clone();
                 let server_responses = server_responses.clone();
 
                 // Fork off the connection handling
@@ -75,8 +85,8 @@ async fn main() -> io::Result<()> {
 
 async fn handle_connection(
     connection_id: u16,
-    address_map: HashMap<String, SocketAddr>,
-    server_responses: PlaceholderServerResponsesParsed,
+    address_map: Arc<HashMap<String, SocketAddr>>,
+    server_responses: Arc<PlaceholderServerResponsesParsed>,
     mut client_stream: TcpStream,
 ) -> io::Result<()> {
     // TODO: Handle legacy ping
@@ -103,7 +113,7 @@ async fn handle_connection(
                 connection_id, handshake.address
             );
 
-            if let Some(response) = server_responses.no_mapping {
+            if let Some(ref response) = server_responses.no_mapping {
                 println!(
                     "[{} => Client] Responding with no_mapping motd",
                     connection_id
@@ -127,7 +137,7 @@ async fn handle_connection(
                 connection_id, e
             );
 
-            if let Some(response) = server_responses.offline {
+            if let Some(ref response) = server_responses.offline {
                 println!("[{} => Client] Responding with offline motd", connection_id);
                 client_stream.write_response(&response).await?;
             }

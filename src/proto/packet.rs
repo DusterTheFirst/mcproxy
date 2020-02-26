@@ -50,7 +50,7 @@ pub mod response {
     use serde::{Deserialize, Serialize};
 
     /// The JSON response to a ping
-    #[derive(Serialize, Deserialize, Clone, Debug)]
+    #[derive(Serialize, Deserialize, Debug)]
     pub struct Response {
         pub version: Version,
         pub players: Players,
@@ -60,27 +60,27 @@ pub mod response {
     }
 
     /// The version part of the JSON response to a ping
-    #[derive(Serialize, Deserialize, Clone, Debug)]
+    #[derive(Serialize, Deserialize, Debug)]
     pub struct Version {
         pub name: String,
         pub protocol: u16,
     }
 
-    #[derive(Serialize, Deserialize, Clone, Debug)]
+    #[derive(Serialize, Deserialize, Debug)]
     pub struct Players {
         pub max: u16,
         pub online: u16,
         pub sample: Vec<Player>,
     }
 
-    #[derive(Serialize, Deserialize, Clone, Debug)]
+    #[derive(Serialize, Deserialize, Debug)]
     pub struct Player {
         pub name: String,
         pub id: String,
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 /// A minecraft chat object
 pub enum Chat {

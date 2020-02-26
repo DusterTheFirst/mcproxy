@@ -1,6 +1,7 @@
 use crate::proto::packet::{response::Response, Chat};
 use async_std::fs;
 use async_std::io;
+use async_std::net::IpAddr;
 use async_std::net::SocketAddr;
 use async_std::path::Path;
 use serde::de::DeserializeOwned;
@@ -44,7 +45,10 @@ impl Config {
 
 #[derive(Deserialize, Debug)]
 pub struct ProxyConfig {
+    /// The port to bind to
     pub port: u16,
+    /// The address to bind to
+    pub address: IpAddr,
 }
 
 #[derive(Deserialize, Debug)]
@@ -73,7 +77,7 @@ impl PlaceholderServerResponsesFiles {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug)]
 pub struct PlaceholderServerResponses<T> {
     /// Response for server when mapping exists but connection failed
     pub offline: Option<T>,

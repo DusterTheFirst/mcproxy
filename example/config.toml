@@ -12,6 +12,8 @@
 [proxy]
 # The port to bind to
 port = 25565
+# The address to bind to
+address = "0.0.0.0"
 
 [placeholder_server]
 # The message to send when a player attempts to join the server
