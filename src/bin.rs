@@ -71,12 +71,12 @@ async fn main() -> io::Result<()> {
                     {
                         Ok(_) => {}
                         Err(e) => {
-                            eprintln!("Error in handling connection: {}", e);
+                            error!("Error in handling connection: {}", e);
                         }
                     };
                 });
             }
-            Err(e) => eprintln!("Error connecting to client: {}", e),
+            Err(e) => error!("Error connecting to client: {}", e),
         }
     }
 
@@ -90,13 +90,11 @@ async fn handle_connection(
     mut client_stream: TcpStream,
 ) -> io::Result<()> {
     // TODO: Handle legacy ping
-    println!("[{}] {}", connection_id, Green.paint("New connection"));
+    trace!("[{}] {}", connection_id, Green.paint("New connection"));
 
     // First, the client sends a Handshake packet with its state set to 1.
     let handshake: Handshake = client_stream.read_handshake().await?;
-    // println!("{}", RGB(128, 128, 128).paint("HANDSHAKE"));
-    // println!("{}\n\n", handshake);
-    println!(
+    trace!(
         "[{}] Connection using address: {} and port: {} with protocol version: {}",
         connection_id, handshake.address, handshake.port, handshake.protocol_version
     );
@@ -108,13 +106,13 @@ async fn handle_connection(
     let address = match mapping {
         Some(a) => a,
         None => {
-            println!(
+            warn!(
                 "[{}] No mapping exists for {}",
                 connection_id, handshake.address
             );
 
             if let Some(ref response) = server_responses.no_mapping {
-                println!(
+                trace!(
                     "[{} => Client] Responding with no_mapping motd",
                     connection_id
                 );
@@ -125,27 +123,27 @@ async fn handle_connection(
         }
     };
 
-    println!(
+    trace!(
         "[{}] Attempting to connect to the server running on address {}",
         connection_id, address
     );
     let mut server_stream = match TcpStream::connect(address).await {
         Ok(stream) => stream,
         Err(e) => {
-            eprintln!(
+            error!(
                 "[{}] Failed to connect to proxied server: {}",
                 connection_id, e
             );
 
             if let Some(ref response) = server_responses.offline {
-                println!("[{} => Client] Responding with offline motd", connection_id);
+                trace!("[{} => Client] Responding with offline motd", connection_id);
                 client_stream.write_response(&response).await?;
             }
 
             return Ok(());
         }
     };
-    println!("[{}] Connected to proxied server", connection_id);
+    trace!("[{}] Connected to proxied server", connection_id);
 
     // TODO: Utilize TcpStreams' peek to never have to hold packets
     server_stream
@@ -157,7 +155,7 @@ async fn handle_connection(
         .start()
         .await;
 
-    println!("[{}] Connection closed", connection_id);
+    trace!("[{}] Connection closed", connection_id);
 
     Ok(())
 }

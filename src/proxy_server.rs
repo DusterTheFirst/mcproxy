@@ -21,8 +21,8 @@ impl ProxyServer {
     pub async fn start(self) {
         let server_task = async {
             match io::copy(self.client_stream.as_ref(), self.server_stream.as_ref()).await {
-                Ok(_) => println!("[{}][Client => Server] Stream Closed successfully", self.id),
-                Err(e) => eprint!(
+                Ok(_) => trace!("[{}][Client => Server] Stream Closed successfully", self.id),
+                Err(e) => warn!(
                     "[{}][Client => Server] Stream Closed with error: {}",
                     self.id, e
                 ),
@@ -30,8 +30,8 @@ impl ProxyServer {
         };
         let client_task = async {
             match io::copy(self.server_stream.as_ref(), self.client_stream.as_ref()).await {
-                Ok(_) => println!("[{}][Server => Client] Stream Closed successfully", self.id),
-                Err(e) => eprint!(
+                Ok(_) => trace!("[{}][Server => Client] Stream Closed successfully", self.id),
+                Err(e) => warn!(
                     "[{}][Server => Client] Stream Closed with error: {}",
                     self.id, e
                 ),
