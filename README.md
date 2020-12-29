@@ -9,7 +9,6 @@
 
 > Extention of [mcsleep](https://github.com/DusterTheFirst/MGMT/tree/master/mcsleep) to work as a reverse proxy for minecraft servers
 
-
         MCProxy - Low cost minecraft reverse proxy
         Copyright (C) 2019  Zachary Kohnen (DusterTheFirst)
 
