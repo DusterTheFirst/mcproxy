@@ -1,17 +1,15 @@
-use async_std::io::{self, Read, Write};
-use async_std::prelude::*;
 use async_trait::async_trait;
-use byteorder::{BigEndian, ReadBytesExt};
+use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt, AsyncReadExt};
 use std::convert::TryInto;
 use std::marker::Unpin;
 
 use crate::proto::{response::Response, string, var_int, Handshake, NextState, Packet};
 
 /// Additions of manupulating of MC packets to any Write + Read + Sized
-impl<R: Write + Read + Unpin> PacketManipulation for R {}
+impl<R: AsyncWrite + AsyncRead + Unpin> PacketManipulation for R {}
 
 #[async_trait]
-pub trait PacketManipulation: Write + Read + Unpin + Sized {
+pub trait PacketManipulation: AsyncWrite + AsyncRead + Unpin + Sized {
     /// Write a packet and output its data
     async fn write_packet(&mut self, id: i32, data: &[u8]) -> io::Result<Packet> {
         let ser_id = var_int::write(id);
@@ -20,7 +18,7 @@ pub trait PacketManipulation: Write + Read + Unpin + Sized {
 
         self.write_all(&ser_length).await?;
         self.write_all(&ser_id).await?;
-        self.write_all(&data).await?;
+        self.write_all(data).await?;
 
         Ok(Packet {
             id,
@@ -52,7 +50,7 @@ pub trait PacketManipulation: Write + Read + Unpin + Sized {
         // Get the protocol version
         let protocol_version = var_int::read(&mut data_buf).await?.value;
         let address = string::read(&mut data_buf).await?;
-        let port = data_buf.read_u16::<BigEndian>()?;
+        let port = data_buf.read_u16().await?;
         let next_state = var_int::read(&mut data_buf).await?.value;
 
         Ok(Handshake {

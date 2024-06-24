@@ -6,7 +6,7 @@
 "3.mcproxy.dusterthefirst.com" = "127.0.0.1:25573"
 "4.mcproxy.dusterthefirst.com" = "127.0.0.1:25574"
 "5.mcproxy.dusterthefirst.com" = "127.0.0.1:25575"
-"localhost" = "127.0.0.1:25580"
+"localhost" = "127.0.0.1:25570" # FIXME: loops are possible, keep track of recurse?
 
 # Configuration for the proxy server
 [proxy]

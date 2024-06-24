@@ -1,0 +1,19 @@
+services:
+  mc:
+    image: itzg/minecraft-server:java21-alpine
+    deploy:
+      replicas: 5
+      resources:
+        reservations:
+          cpus: 1.0
+          memory: 50M
+        limits:
+          cpus: 2.0
+          memory: 1G
+    tty: true
+    stdin_open: true
+    ports:
+      - "25570-25575:25565"
+    environment:
+      EULA: "TRUE"
+      TYPE: "paper"

@@ -1,20 +1,18 @@
-use async_std::io::{self, ErrorKind, Read};
-use async_std::prelude::*;
-use std::marker::Unpin;
+use std::{io::ErrorKind, marker::Unpin};
+
+use tokio::io::{self, AsyncRead, AsyncReadExt};
 
 /// Parse in a var int and return the value and its length
 pub async fn read<T>(stream: &mut T) -> Result<VarInt, io::Error>
 where
-    T: Read + Unpin,
+    T: AsyncRead + Unpin,
 {
     let mut length: i32 = 0;
     let mut result: i32 = 0;
     let mut read: u8;
 
     while {
-        let mut buf = [0];
-        stream.read(&mut buf).await?;
-        read = buf[0];
+        read = stream.read_u8().await?;
         let value = read & 0b0111_1111;
         result |= (i32::from(value)) << (7 * length);
 

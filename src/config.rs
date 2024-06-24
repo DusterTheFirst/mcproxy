@@ -1,15 +1,15 @@
 use crate::proto::packet::{response::Response, Chat};
-use async_std::fs;
-use async_std::io;
-use async_std::net::IpAddr;
-use async_std::net::SocketAddr;
-use async_std::path::Path;
+use base64::Engine;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::net::IpAddr;
+use std::{collections::HashMap, net::SocketAddr};
+use std::path::Path;
+use tokio::{fs, io};
 
 async fn load_toml<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> io::Result<T> {
-    Ok(toml::from_str(&fs::read_to_string(path).await?)?)
+    toml::from_str(&fs::read_to_string(path).await?)
+        .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
 }
 
 /// Convert the favicon from a URL to the rendered base64 data
@@ -18,7 +18,7 @@ async fn load_favicon(response: Response) -> io::Result<Response> {
         favicon: if let Some(favicon) = response.favicon {
             Some(format!(
                 "data:image/png;base64,{}",
-                base64::encode(&fs::read(favicon).await?)
+                base64::prelude::BASE64_STANDARD.encode(&fs::read(favicon).await?)
             ))
         } else {
             None

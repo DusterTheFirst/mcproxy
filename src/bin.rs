@@ -1,12 +1,9 @@
-#[macro_use]
-extern crate log;
-
-use async_std::io;
-use async_std::net::{SocketAddr, TcpListener, TcpStream};
-use async_std::prelude::*;
-use async_std::task;
-use std::collections::HashMap;
 use std::sync::Arc;
+use std::{collections::HashMap, net::SocketAddr};
+use tokio::net::TcpStream;
+use tokio::task;
+use tokio::{io, net::TcpListener};
+use tracing::{error, info, trace, warn};
 
 // TODO: use the one from redox os or whatever
 use ansi_term::Color::*;
@@ -19,14 +16,9 @@ use config::{Config, PlaceholderServerResponsesParsed};
 use proto::{Handshake, PacketManipulation};
 use proxy_server::ProxyServer;
 
-#[async_std::main]
+#[tokio::main]
 async fn main() -> io::Result<()> {
-    if cfg!(debug_assertions) {
-        dotenv::from_filename(".dev.env").ok();
-    } else {
-        dotenv::dotenv().ok();
-    }
-    pretty_env_logger::init();
+    tracing_subscriber::fmt::init();
 
     info!("Starting proxy");
 
@@ -34,23 +26,24 @@ async fn main() -> io::Result<()> {
     let config: Config = Config::load("./example/config.toml").await?;
 
     let address_map = Arc::new(config.servers);
-    let server_responses: Arc<PlaceholderServerResponsesParsed> = Arc::new(config.placeholder_server.responses.load().await?);
+    let server_responses: Arc<PlaceholderServerResponsesParsed> =
+        Arc::new(config.placeholder_server.responses.load().await?);
 
-    let listener = TcpListener::bind(SocketAddr::new(
-        config.proxy.address,
-        config.proxy.port,
-    ))
-    .await
-    .expect("Unable to bind to socket");
+    let listener = TcpListener::bind(SocketAddr::new(config.proxy.address, config.proxy.port))
+        .await
+        .expect("Unable to bind to socket");
 
-    // Listen for incoming connections
-    let mut incoming = listener.incoming();
-    info!("Listening for connections on port {} and address {}", config.proxy.port, config.proxy.address);
+    info!(
+        "Listening for connections on port {} and address {}",
+        config.proxy.port, config.proxy.address
+    );
 
     // Accept connections as they come in
-    while let Some(stream) = incoming.next().await {
+    loop {
+        let stream = listener.accept().await;
+
         match stream {
-            Ok(client_stream) => {
+            Ok((client_stream, address)) => {
                 // Clone pointers to the address map and server responses
                 let address_map = address_map.clone();
                 let server_responses = server_responses.clone();
@@ -79,8 +72,6 @@ async fn main() -> io::Result<()> {
             Err(e) => error!("Error connecting to client: {}", e),
         }
     }
-
-    Ok(())
 }
 
 async fn handle_connection(
@@ -96,7 +87,10 @@ async fn handle_connection(
     let handshake: Handshake = client_stream.read_handshake().await?;
     trace!(
         "[{}] Connection using address: {} and port: {} with protocol version: {}",
-        connection_id, handshake.address, handshake.port, handshake.protocol_version
+        connection_id,
+        handshake.address,
+        handshake.port,
+        handshake.protocol_version
     );
 
     // Load mapping
@@ -116,7 +110,7 @@ async fn handle_connection(
                     "[{} => Client] Responding with no_mapping motd",
                     connection_id
                 );
-                client_stream.write_response(&response).await?;
+                client_stream.write_response(response).await?;
             }
 
             return Ok(());
@@ -124,20 +118,21 @@ async fn handle_connection(
     };
 
     trace!(
-        "[{}] Attempting to connect to the server running on address {}",
-        connection_id, address
+        connection = connection_id,
+        "Attempting to connect to the server running on address {}",
+        address
     );
     let mut server_stream = match TcpStream::connect(address).await {
         Ok(stream) => stream,
         Err(e) => {
             error!(
-                "[{}] Failed to connect to proxied server: {}",
-                connection_id, e
+                connection = connection_id,
+                "Failed to connect to proxied server: {}", e
             );
 
             if let Some(ref response) = server_responses.offline {
                 trace!("[{} => Client] Responding with offline motd", connection_id);
-                client_stream.write_response(&response).await?;
+                client_stream.write_response(response).await?;
             }
 
             return Ok(());

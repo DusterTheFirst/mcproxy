@@ -1,6 +1,6 @@
+use tokio::io::{self, AsyncRead, AsyncReadExt};
+
 use crate::proto::var_int;
-use async_std::io::{self, Read};
-use async_std::prelude::*;
 use std::convert::TryInto;
 use std::marker::Unpin;
 
@@ -17,7 +17,7 @@ pub fn write(string: &str) -> Vec<u8> {
 // Read a UTF 8 string with a var_int size prefix
 pub async fn read<T>(stream: &mut T) -> Result<String, io::Error>
 where
-    T: Read + Unpin,
+    T: AsyncRead + Unpin,
 {
     let address_len = var_int::read(stream).await?.value;
     let mut buf = vec![0u8; address_len.try_into().unwrap()];
