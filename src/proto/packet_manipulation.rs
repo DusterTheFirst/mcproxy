@@ -1,15 +1,13 @@
-use async_trait::async_trait;
-use tokio::io::{self, AsyncRead, AsyncWrite, AsyncWriteExt, AsyncReadExt};
 use std::convert::TryInto;
 use std::marker::Unpin;
+use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::proto::{response::Response, string, var_int, Handshake, NextState, Packet};
 
 /// Additions of manupulating of MC packets to any Write + Read + Sized
 impl<R: AsyncWrite + AsyncRead + Unpin> PacketManipulation for R {}
 
-#[async_trait]
-pub trait PacketManipulation: AsyncWrite + AsyncRead + Unpin + Sized {
+pub(crate) trait PacketManipulation: AsyncWrite + AsyncRead + Unpin + Sized {
     /// Write a packet and output its data
     async fn write_packet(&mut self, id: i32, data: &[u8]) -> io::Result<Packet> {
         let ser_id = var_int::write(id);
@@ -43,7 +41,7 @@ pub trait PacketManipulation: AsyncWrite + AsyncRead + Unpin + Sized {
     }
 
     /// Read the handshake packet in and return the data from it
-    async fn read_handshake(&mut self) -> io::Result<Handshake> {
+    async fn read_handshake(&mut self) -> io::Result<(Handshake, Packet)> {
         let packet = self.read_packet().await?;
         let mut data_buf = packet.data.as_slice();
 
@@ -53,13 +51,15 @@ pub trait PacketManipulation: AsyncWrite + AsyncRead + Unpin + Sized {
         let port = data_buf.read_u16().await?;
         let next_state = var_int::read(&mut data_buf).await?.value;
 
-        Ok(Handshake {
+        Ok((
+            Handshake {
+                protocol_version,
+                address,
+                port,
+                next_state: NextState::from(next_state),
+            },
             packet,
-            protocol_version,
-            address,
-            port,
-            next_state: NextState::from(next_state),
-        })
+        ))
     }
 
     async fn write_response(&mut self, response: &Response) -> io::Result<Packet> {

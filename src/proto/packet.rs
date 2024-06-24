@@ -21,7 +21,6 @@ impl Display for Packet {
 
 #[derive(Debug)]
 pub struct Handshake {
-    pub packet: Packet,
     pub protocol_version: i32,
     pub address: String,
     pub port: u16,
@@ -31,9 +30,6 @@ pub struct Handshake {
 // TODO: Debug shows large view, DISPLAY hides data
 impl Display for Handshake {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        writeln!(f, "Packet Info:")?;
-        writeln!(f, "    Length: {:?} bytes", self.packet.length)?;
-        writeln!(f, "    ID: 0x{:02X}", self.packet.id)?;
         writeln!(f, "Handshake Data:")?;
         writeln!(f, "    Protocol version: {}", self.protocol_version)?;
         writeln!(f, "    Address: {}", self.address)?;

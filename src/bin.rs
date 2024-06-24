@@ -3,24 +3,21 @@ use std::{collections::HashMap, net::SocketAddr};
 use tokio::net::TcpStream;
 use tokio::task;
 use tokio::{io, net::TcpListener};
-use tracing::{error, info, trace, warn};
-
-// TODO: use the one from redox os or whatever
-use ansi_term::Color::*;
+use tracing::{debug, error, field, info, trace, warn, Span};
 
 pub mod config;
 pub mod proto;
 pub mod proxy_server;
 
 use config::{Config, PlaceholderServerResponsesParsed};
-use proto::{Handshake, PacketManipulation};
+use proto::PacketManipulation;
 use proxy_server::ProxyServer;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
     tracing_subscriber::fmt::init();
 
-    info!("Starting proxy");
+    info!("proxy starting");
 
     // TODO: config file + cmd line opts
     let config: Config = Config::load("./example/config.toml").await?;
@@ -34,8 +31,9 @@ async fn main() -> io::Result<()> {
         .expect("Unable to bind to socket");
 
     info!(
-        "Listening for connections on port {} and address {}",
-        config.proxy.port, config.proxy.address
+        port = config.proxy.port,
+        address = %config.proxy.address,
+        "proxy server listening",
     );
 
     // Accept connections as they come in
@@ -74,6 +72,7 @@ async fn main() -> io::Result<()> {
     }
 }
 
+#[tracing::instrument(name="connection", skip_all, fields(connection=connection_id, address=field::Empty))]
 async fn handle_connection(
     connection_id: u16,
     address_map: Arc<HashMap<String, SocketAddr>>,
@@ -81,35 +80,27 @@ async fn handle_connection(
     mut client_stream: TcpStream,
 ) -> io::Result<()> {
     // TODO: Handle legacy ping
-    trace!("[{}] {}", connection_id, Green.paint("New connection"));
+    trace!("new connection");
 
     // First, the client sends a Handshake packet with its state set to 1.
-    let handshake: Handshake = client_stream.read_handshake().await?;
-    trace!(
-        "[{}] Connection using address: {} and port: {} with protocol version: {}",
-        connection_id,
-        handshake.address,
-        handshake.port,
-        handshake.protocol_version
+    let (handshake, handshake_packet) = client_stream.read_handshake().await?;
+    debug!(
+        address = handshake.address,
+        port = handshake.port,
+        protocol_version = handshake.protocol_version,
+        next_state = ?handshake.next_state,
+        "handshake received"
     );
-
-    // Load mapping
-    let mapping = address_map.get(&handshake.address);
+    Span::current().record("address", &handshake.address);
 
     // Handle mapping
-    let address = match mapping {
+    let address = match address_map.get(&handshake.address) {
         Some(a) => a,
         None => {
-            warn!(
-                "[{}] No mapping exists for {}",
-                connection_id, handshake.address
-            );
+            warn!("unknown address");
 
             if let Some(ref response) = server_responses.no_mapping {
-                trace!(
-                    "[{} => Client] Responding with no_mapping motd",
-                    connection_id
-                );
+                trace!("sending with no_mapping motd");
                 client_stream.write_response(response).await?;
             }
 
@@ -117,40 +108,35 @@ async fn handle_connection(
         }
     };
 
-    trace!(
-        connection = connection_id,
-        "Attempting to connect to the server running on address {}",
-        address
-    );
     let mut server_stream = match TcpStream::connect(address).await {
         Ok(stream) => stream,
-        Err(e) => {
+        Err(error) => {
             error!(
-                connection = connection_id,
-                "Failed to connect to proxied server: {}", e
+                %error,
+                "could not connect to upstream"
             );
 
             if let Some(ref response) = server_responses.offline {
-                trace!("[{} => Client] Responding with offline motd", connection_id);
+                trace!("sending offline motd");
                 client_stream.write_response(response).await?;
             }
 
             return Ok(());
         }
     };
-    trace!("[{}] Connected to proxied server", connection_id);
+    trace!("connected to upstream");
 
     // TODO: Utilize TcpStreams' peek to never have to hold packets
     server_stream
-        .write_packet(handshake.packet.id, &handshake.packet.data)
+        .write_packet(handshake_packet.id, &handshake_packet.data)
         .await?;
 
     // Spin up constant proxy until the connection is complete
-    ProxyServer::new(server_stream, client_stream, connection_id)
+    ProxyServer::new(server_stream, client_stream)
         .start()
         .await;
 
-    trace!("[{}] Connection closed", connection_id);
+    trace!("Connection closed");
 
     Ok(())
 }

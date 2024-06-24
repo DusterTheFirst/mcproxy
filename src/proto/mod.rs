@@ -4,4 +4,4 @@ pub mod string;
 pub mod var_int;
 
 pub use packet::{response, Chat, Handshake, NextState, Packet};
-pub use packet_manipulation::PacketManipulation;
+pub(crate) use packet_manipulation::PacketManipulation;
