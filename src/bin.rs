@@ -1,21 +1,32 @@
-use std::sync::Arc;
-use std::{collections::HashMap, net::SocketAddr};
-use tokio::net::TcpStream;
-use tokio::task;
-use tokio::{io, net::TcpListener};
-use tracing::{debug, error, field, info, trace, warn, Span};
+use console_subscriber::ConsoleLayer;
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use tokio::{
+    io::{self, AsyncReadExt},
+    net::{TcpListener, TcpStream},
+};
+use tracing::{
+    debug, error, field, info, level_filters::LevelFilter, trace, trace_span, warn, Span,
+};
+use tracing_error::{ErrorLayer, InstrumentResult, TracedError};
+use tracing_subscriber::{
+    filter::Targets, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+};
+
+use crate::config::{Config, PlaceholderServerResponsesParsed};
+use crate::proto::PacketManipulation;
+use crate::proxy_server::ProxyServer;
 
 pub mod config;
 pub mod proto;
 pub mod proxy_server;
 
-use config::{Config, PlaceholderServerResponsesParsed};
-use proto::PacketManipulation;
-use proxy_server::ProxyServer;
-
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::Registry::default()
+        .with(ErrorLayer::default())
+        .with(tracing_subscriber::fmt::layer().with_filter(EnvFilter::from_default_env()))
+        .with(ConsoleLayer::builder().with_default_env().spawn())
+        .init();
 
     info!("proxy starting");
 
@@ -46,26 +57,29 @@ async fn main() -> io::Result<()> {
                 let address_map = address_map.clone();
                 let server_responses = server_responses.clone();
 
-                // Fork off the connection handling
-                task::spawn(async {
-                    // Get the connection id
-                    let connection_id = client_stream.peer_addr().unwrap().port();
+                // Get the connection id
+                let connection_id = client_stream.peer_addr().unwrap().port();
 
-                    // Handle the connection
-                    match handle_connection(
-                        connection_id,
-                        address_map,
-                        server_responses,
-                        client_stream,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(e) => {
-                            error!("Error in handling connection: {}", e);
-                        }
-                    };
-                });
+                // Fork off the connection handling
+                tokio::task::Builder::new()
+                    .name(&connection_id.to_string())
+                    .spawn(async move {
+                        // Handle the connection
+                        match handle_connection(
+                            connection_id,
+                            address_map,
+                            server_responses,
+                            client_stream,
+                        )
+                        .await
+                        {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Error in handling connection: {}", e);
+                            }
+                        };
+                    })
+                    .unwrap();
             }
             Err(e) => error!("Error connecting to client: {}", e),
         }
@@ -78,7 +92,7 @@ async fn handle_connection(
     address_map: Arc<HashMap<String, SocketAddr>>,
     server_responses: Arc<PlaceholderServerResponsesParsed>,
     mut client_stream: TcpStream,
-) -> io::Result<()> {
+) -> Result<(), TracedError<io::Error>> {
     // TODO: Handle legacy ping
     trace!("new connection");
 
@@ -99,10 +113,26 @@ async fn handle_connection(
         None => {
             warn!("unknown address");
 
+            let packet = client_stream.read_packet().await?;
+            println!("{:?}", packet);
+
             if let Some(ref response) = server_responses.no_mapping {
+                let mut response = response.clone();
+                if let Some(ref mut players) = response.players {
+                    for player in players.sample.iter_mut() {
+                        if uuid::Uuid::try_parse(&player.id).unwrap().is_nil() {
+                            player.id = uuid::Uuid::new_v4().to_string();
+                        }
+                    }
+                    players.online = players.sample.len() as u16;
+                    players.max = players.max.max(players.online);
+                }
                 trace!("sending with no_mapping motd");
-                client_stream.write_response(response).await?;
+                client_stream.write_response(&response).await?;
             }
+
+            let packet = client_stream.read_ping_request().await?;
+            println!("{:?}", packet);
 
             return Ok(());
         }
@@ -132,9 +162,7 @@ async fn handle_connection(
         .await?;
 
     // Spin up constant proxy until the connection is complete
-    ProxyServer::new(server_stream, client_stream)
-        .start()
-        .await;
+    ProxyServer::new(server_stream, client_stream).start().await;
 
     trace!("Connection closed");
 

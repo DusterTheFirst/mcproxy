@@ -20,3 +20,6 @@ base64 = "0.22.1"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tokio = { version = "1.38.0", features = ["full", "macros"] }
+console-subscriber = "0.3.0"
+tracing-error = { version = "0.2.0", features = ["traced-error"] }
+uuid = { version = "1.9.1", features = ["v4"] }
