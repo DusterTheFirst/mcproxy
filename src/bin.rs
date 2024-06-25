@@ -1,16 +1,12 @@
-use console_subscriber::ConsoleLayer;
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{
-    io::{self, AsyncReadExt},
+    io,
     net::{TcpListener, TcpStream},
+    task,
 };
-use tracing::{
-    debug, error, field, info, level_filters::LevelFilter, trace, trace_span, warn, Span,
-};
-use tracing_error::{ErrorLayer, InstrumentResult, TracedError};
-use tracing_subscriber::{
-    filter::Targets, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
-};
+use tracing::{debug, error, field, info, trace, warn, Span};
+use tracing_error::{ErrorLayer, TracedError};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 use crate::config::{Config, PlaceholderServerResponsesParsed};
 use crate::proto::PacketManipulation;
@@ -22,10 +18,18 @@ pub mod proxy_server;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    #[cfg(not(feature = "tokio-console"))]
+    let console_layer = tracing_subscriber::layer::Identity::new();
+
+    #[cfg(feature = "tokio-console")]
+    let console_layer = console_subscriber::ConsoleLayer::builder()
+        .with_default_env()
+        .spawn();
+
     tracing_subscriber::Registry::default()
         .with(ErrorLayer::default())
         .with(tracing_subscriber::fmt::layer().with_filter(EnvFilter::from_default_env()))
-        .with(ConsoleLayer::builder().with_default_env().spawn())
+        .with(console_layer)
         .init();
 
     info!("proxy starting");
@@ -61,25 +65,31 @@ async fn main() -> io::Result<()> {
                 let connection_id = client_stream.peer_addr().unwrap().port();
 
                 // Fork off the connection handling
-                tokio::task::Builder::new()
+                let task = async move {
+                    // Handle the connection
+                    match handle_connection(
+                        connection_id,
+                        address_map,
+                        server_responses,
+                        client_stream,
+                    )
+                    .await
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            error!("Error in handling connection: {}", e);
+                        }
+                    };
+                };
+
+                #[cfg(feature = "tokio-console")]
+                task::Builder::new()
                     .name(&connection_id.to_string())
-                    .spawn(async move {
-                        // Handle the connection
-                        match handle_connection(
-                            connection_id,
-                            address_map,
-                            server_responses,
-                            client_stream,
-                        )
-                        .await
-                        {
-                            Ok(_) => {}
-                            Err(e) => {
-                                error!("Error in handling connection: {}", e);
-                            }
-                        };
-                    })
+                    .spawn(task)
                     .unwrap();
+
+                #[cfg(not(feature = "tokio-console"))]
+                task::spawn(task);
             }
             Err(e) => error!("Error connecting to client: {}", e),
         }
@@ -107,32 +117,33 @@ async fn handle_connection(
     );
     Span::current().record("address", &handshake.address);
 
+    match handshake.next_state {
+        proto::NextState::Ping => {
+            // TODO: ping fn
+        }
+        proto::NextState::Connect => todo!(),
+        proto::NextState::Unknown(state) => warn!(state, "unknown next_state"),
+    }
+
     // Handle mapping
     let address = match address_map.get(&handshake.address) {
         Some(a) => a,
         None => {
             warn!("unknown address");
 
-            let packet = client_stream.read_packet().await?;
-            println!("{:?}", packet);
+            // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
+            client_stream.read_packet().await?;
 
             if let Some(ref response) = server_responses.no_mapping {
-                let mut response = response.clone();
-                if let Some(ref mut players) = response.players {
-                    for player in players.sample.iter_mut() {
-                        if uuid::Uuid::try_parse(&player.id).unwrap().is_nil() {
-                            player.id = uuid::Uuid::new_v4().to_string();
-                        }
-                    }
-                    players.online = players.sample.len() as u16;
-                    players.max = players.max.max(players.online);
-                }
                 trace!("sending with no_mapping motd");
-                client_stream.write_response(&response).await?;
+                // The server should respond with a Status Response packet.
+                client_stream.write_status_response(response).await?;
             }
 
+            // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
             let packet = client_stream.read_ping_request().await?;
-            println!("{:?}", packet);
+            // The server will respond with the Pong Response packet and then close the connection.
+            client_stream.write_pong_response(packet).await?;
 
             return Ok(());
         }
@@ -146,10 +157,19 @@ async fn handle_connection(
                 "could not connect to upstream"
             );
 
+            // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
+            client_stream.read_packet().await?;
+
             if let Some(ref response) = server_responses.offline {
                 trace!("sending offline motd");
-                client_stream.write_response(response).await?;
+                // The server should respond with a Status Response packet.
+                client_stream.write_status_response(response).await?;
             }
+
+            // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
+            let packet = client_stream.read_ping_request().await?;
+            // The server will respond with the Pong Response packet and then close the connection.
+            client_stream.write_pong_response(packet).await?;
 
             return Ok(());
         }

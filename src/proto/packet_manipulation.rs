@@ -73,23 +73,31 @@ pub(crate) trait PacketManipulation: AsyncWrite + AsyncRead + Unpin + Sized {
     }
 
     #[tracing::instrument(skip(self), fields(writer = std::any::type_name::<Self>()))]
-    async fn read_ping_request(&mut self) -> Result<u64, TracedError<io::Error>> {
+    async fn read_ping_request(&mut self) -> Result<i64, TracedError<io::Error>> {
         let packet = self.read_packet().await?;
         assert_eq!(packet.id, 0x01);
         let mut data_buf = packet.data.as_slice();
 
-        let payload = data_buf.read_u64().await.in_current_span()?;
+        let payload = data_buf.read_i64().await.in_current_span()?;
 
         Ok(payload)
     }
 
     #[tracing::instrument(skip(self), fields(writer = std::any::type_name::<Self>()))]
-    async fn write_response(
+    async fn write_status_response(
         &mut self,
         response: &Response,
     ) -> Result<Packet, TracedError<io::Error>> {
         let response = string::write(&serde_json::to_string(response).unwrap());
 
         self.write_packet(0x00, &response).await
+    }
+
+    #[tracing::instrument(skip(self), fields(writer = std::any::type_name::<Self>()))]
+    async fn write_pong_response(
+        &mut self,
+        payload: i64,
+    ) -> Result<Packet, TracedError<io::Error>> {
+        self.write_packet(0x01, &payload.to_be_bytes()).await
     }
 }

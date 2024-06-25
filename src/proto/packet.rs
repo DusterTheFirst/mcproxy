@@ -60,7 +60,7 @@ pub mod response {
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct Version {
         pub name: String,
-        pub protocol: u16,
+        pub protocol: i32,
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]

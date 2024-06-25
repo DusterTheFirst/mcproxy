@@ -1,8 +1,8 @@
 [package]
-name = "mcproxy"
-version = "0.1.0"
 authors = ["DusterTheFirst <14093962+DusterTheFirst@users.noreply.github.com>"]
 edition = "2021"
+name    = "mcproxy"
+version = "0.1.0"
 
 # [lib]
 # name = "mcproxy"
@@ -12,14 +12,16 @@ edition = "2021"
 name = "mcproxy"
 path = "src/bin.rs"
 
+[features]
+tokio-console = ["dep:console-subscriber"]
+
 [dependencies]
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.8.14"
-base64 = "0.22.1"
-tracing = "0.1.40"
+base64             = "0.22.1"
+console-subscriber = { version = "0.3.0", optional = true }
+serde              = { version = "1.0", features = ["derive"] }
+serde_json         = "1.0"
+tokio              = { version = "1.38.0", features = ["full", "macros"] }
+toml               = "0.8.14"
+tracing            = "0.1.40"
+tracing-error      = { version = "0.2.0", features = ["traced-error"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-tokio = { version = "1.38.0", features = ["full", "macros"] }
-console-subscriber = "0.3.0"
-tracing-error = { version = "0.2.0", features = ["traced-error"] }
-uuid = { version = "1.9.1", features = ["v4"] }
