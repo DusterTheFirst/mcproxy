@@ -8,7 +8,7 @@ use tracing_error::{InstrumentResult, TracedError};
 use crate::proto::{response::Response, string, var_int, Handshake, NextState, Packet};
 
 /// Write a packet and output its data
-#[tracing::instrument(skip(stream))]
+#[tracing::instrument(skip(stream, data), fields(len=data.len()), err)]
 pub async fn write_packet(
     stream: &mut TcpStream,
     id: i32,
@@ -32,7 +32,7 @@ pub async fn write_packet(
 }
 
 /// Read a packet and output its data
-#[tracing::instrument(skip(stream))]
+#[tracing::instrument(skip(stream), err)]
 pub async fn read_packet(stream: &mut TcpStream) -> Result<Packet, TracedError<io::Error>> {
     // let header = [0; 10];
     // self.peek
@@ -51,7 +51,7 @@ pub async fn read_packet(stream: &mut TcpStream) -> Result<Packet, TracedError<i
 }
 
 /// Read the handshake packet in and return the data from it
-#[tracing::instrument(skip(stream))]
+#[tracing::instrument(skip(stream), err)]
 pub async fn read_handshake(
     stream: &mut TcpStream,
 ) -> Result<(Handshake, Packet), TracedError<io::Error>> {
@@ -76,7 +76,7 @@ pub async fn read_handshake(
     ))
 }
 
-#[tracing::instrument(skip(stream))]
+#[tracing::instrument(skip(stream), err)]
 pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedError<io::Error>> {
     let packet = read_packet(stream).await?;
     assert_eq!(packet.id, 0x01);
@@ -87,7 +87,7 @@ pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedErro
     Ok(payload)
 }
 
-#[tracing::instrument(skip(stream))]
+#[tracing::instrument(skip(stream), err)]
 pub async fn write_status_response(
     stream: &mut TcpStream,
     response: &Response,
@@ -97,7 +97,7 @@ pub async fn write_status_response(
     write_packet(stream, 0x00, &response).await
 }
 
-#[tracing::instrument(skip(stream))]
+#[tracing::instrument(skip(stream), err)]
 pub async fn write_pong_response(
     stream: &mut TcpStream,
     payload: i64,

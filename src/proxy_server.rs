@@ -14,6 +14,7 @@ impl ProxyServer {
         }
     }
 
+    #[tracing::instrument(name="copy_bidirectional", skip(self))]
     pub async fn start(mut self) {
         match io::copy_bidirectional(&mut self.client_stream, &mut self.server_stream).await {
             Ok((a_to_b, b_to_a)) => trace!(a_to_b, b_to_a, "stream closed successfully"),

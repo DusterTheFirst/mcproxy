@@ -5,15 +5,16 @@ use proto::{
     },
     response::Response,
 };
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
     io::{self, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     task,
+    time::timeout,
 };
+use trace::init_tracing_subscriber;
 use tracing::{debug, error, field, info, trace, warn, Span};
-use tracing_error::{ErrorLayer, InstrumentResult, TracedError};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_error::{InstrumentResult, TracedError};
 
 use crate::config::{Config, PlaceholderServerResponsesParsed};
 use crate::proxy_server::ProxyServer;
@@ -21,22 +22,11 @@ use crate::proxy_server::ProxyServer;
 pub mod config;
 pub mod proto;
 pub mod proxy_server;
+pub mod trace;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    #[cfg(not(feature = "tokio-console"))]
-    let console_layer = tracing_subscriber::layer::Identity::new();
-
-    #[cfg(feature = "tokio-console")]
-    let console_layer = console_subscriber::ConsoleLayer::builder()
-        .with_default_env()
-        .spawn();
-
-    tracing_subscriber::Registry::default()
-        .with(ErrorLayer::default())
-        .with(tracing_subscriber::fmt::layer().with_filter(EnvFilter::from_default_env()))
-        .with(console_layer)
-        .init();
+    init_tracing_subscriber();
 
     info!("proxy starting");
 
@@ -102,6 +92,8 @@ async fn main() -> io::Result<()> {
     }
 }
 
+const PING_TIMEOUT: Duration = Duration::from_millis(300);
+
 #[tracing::instrument(name="connection", skip_all, fields(connection=connection_id, address=field::Empty))]
 async fn handle_connection(
     connection_id: u16,
@@ -137,7 +129,18 @@ async fn handle_connection(
         None => {
             warn!("unknown address");
 
-            return ping_response(client_stream, server_responses.no_mapping.as_ref()).await;
+            match timeout(
+                PING_TIMEOUT,
+                ping_response(client_stream, server_responses.no_mapping.as_ref()),
+            )
+            .await
+            {
+                Ok(output) => return output,
+                Err(_) => {
+                    debug!("timeout exceeded");
+                    return Ok(());
+                }
+            }
         }
     };
 
@@ -149,7 +152,18 @@ async fn handle_connection(
                 "could not connect to upstream"
             );
 
-            return ping_response(client_stream, server_responses.offline.as_ref()).await;
+            match timeout(
+                PING_TIMEOUT,
+                ping_response(client_stream, server_responses.offline.as_ref()),
+            )
+            .await
+            {
+                Ok(output) => return output,
+                Err(_) => {
+                    debug!("timeout exceeded");
+                    return Ok(());
+                }
+            }
         }
     };
     trace!("connected to upstream");
@@ -164,8 +178,6 @@ async fn handle_connection(
 
     // Spin up constant proxy until the connection is complete
     ProxyServer::new(server_stream, client_stream).start().await;
-
-    trace!("Connection closed");
 
     Ok(())
 }
