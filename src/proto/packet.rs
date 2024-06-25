@@ -104,7 +104,8 @@ pub enum Chat {
 #[derive(Debug)]
 pub enum NextState {
     Ping,
-    Connect,
+    Login,
+    Transfer,
     Unknown(i32),
 }
 
@@ -112,8 +113,20 @@ impl From<i32> for NextState {
     fn from(num: i32) -> NextState {
         match num {
             1 => NextState::Ping,
-            2 => NextState::Connect,
+            2 => NextState::Login,
+            3 => NextState::Transfer,
             _ => NextState::Unknown(num),
+        }
+    }
+}
+
+impl Display for NextState {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            NextState::Ping => f.write_str("ping"),
+            NextState::Login => f.write_str("login"),
+            NextState::Transfer => f.write_str("transfer"),
+            NextState::Unknown(id) => f.write_fmt(format_args!("{id}")),
         }
     }
 }

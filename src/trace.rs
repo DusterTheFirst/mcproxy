@@ -8,9 +8,12 @@ use opentelemetry_semantic_conventions::{
     resource::{DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, SERVICE_VERSION},
     SCHEMA_URL,
 };
+use tracing::level_filters::LevelFilter;
 use tracing_error::ErrorLayer;
 use tracing_opentelemetry::OpenTelemetryLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_subscriber::{
+    filter::Targets, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
+};
 
 // Create a Resource that captures information about the entity for which telemetry is recorded.
 pub fn resource() -> Resource {
@@ -57,6 +60,9 @@ pub fn init_tracing_subscriber() {
         .with(ErrorLayer::default())
         .with(tracing_subscriber::fmt::layer().with_filter(EnvFilter::from_default_env()))
         .with(console_layer)
-        .with(OpenTelemetryLayer::new(init_tracer()))
+        .with(
+            OpenTelemetryLayer::new(init_tracer())
+                .with_filter(Targets::new().with_target("mcproxy", LevelFilter::TRACE)),
+        )
         .init();
 }

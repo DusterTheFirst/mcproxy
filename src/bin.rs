@@ -4,8 +4,9 @@ use proto::{
         write_status_response,
     },
     response::Response,
+    Handshake,
 };
-use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 use tokio::{
     io::{self, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -13,7 +14,7 @@ use tokio::{
     time::timeout,
 };
 use trace::init_tracing_subscriber;
-use tracing::{debug, error, field, info, trace, warn, Span};
+use tracing::{debug, error, field, info, trace, trace_span, warn, Instrument, Span};
 use tracing_error::{InstrumentResult, TracedError};
 
 use crate::config::{Config, PlaceholderServerResponsesParsed};
@@ -52,7 +53,7 @@ async fn main() -> io::Result<()> {
         let stream = listener.accept().await;
 
         match stream {
-            Ok((client_stream, address)) => {
+            Ok((mut client_stream, address)) => {
                 // Clone pointers to the address map and server responses
                 let address_map = address_map.clone();
                 let server_responses = server_responses.clone();
@@ -67,11 +68,23 @@ async fn main() -> io::Result<()> {
                         connection_id,
                         address_map,
                         server_responses,
-                        client_stream,
+                        &mut client_stream,
                     )
                     .await
                     {
-                        Ok(_) => {}
+                        Ok(ControlFlow::Continue((server_stream, handshake))) => {
+                            // Spin up constant proxy until the connection is complete
+                            ProxyServer::new(server_stream, client_stream)
+                                .start()
+                                .instrument(trace_span!(
+                                    "proxy",
+                                    connection=connection_id,
+                                    address = handshake.address,
+                                    next_state = %handshake.next_state
+                                ))
+                                .await;
+                        }
+                        Ok(ControlFlow::Break(())) => {}
                         Err(e) => {
                             error!("Error in handling connection: {}", e);
                         }
@@ -94,18 +107,18 @@ async fn main() -> io::Result<()> {
 
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
 
-#[tracing::instrument(name="connection", skip_all, fields(connection=connection_id, address=field::Empty))]
+#[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty))]
 async fn handle_connection(
     connection_id: u16,
     address_map: Arc<HashMap<String, SocketAddr>>,
     server_responses: Arc<PlaceholderServerResponsesParsed>,
-    mut client_stream: TcpStream,
-) -> Result<(), TracedError<io::Error>> {
+    client_stream: &mut TcpStream,
+) -> Result<ControlFlow<(), (TcpStream, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
     trace!("new connection");
 
     // First, the client sends a Handshake packet with its state set to 1.
-    let (handshake, handshake_packet) = read_handshake(&mut client_stream).await?;
+    let (handshake, handshake_packet) = read_handshake(client_stream).await?;
     debug!(
         address = handshake.address,
         port = handshake.port,
@@ -114,6 +127,7 @@ async fn handle_connection(
         "handshake received"
     );
     Span::current().record("address", &handshake.address);
+    Span::current().record("next_state", handshake.next_state.to_string());
 
     // match handshake.next_state {
     //     proto::NextState::Ping => {
@@ -135,10 +149,11 @@ async fn handle_connection(
             )
             .await
             {
-                Ok(output) => return output,
+                Ok(Ok(())) => return Ok(ControlFlow::Break(())),
+                Ok(Err(error)) => return Err(error),
                 Err(_) => {
                     debug!("timeout exceeded");
-                    return Ok(());
+                    return Ok(ControlFlow::Break(()));
                 }
             }
         }
@@ -158,17 +173,18 @@ async fn handle_connection(
             )
             .await
             {
-                Ok(output) => return output,
+                Ok(Ok(())) => return Ok(ControlFlow::Break(())),
+                Ok(Err(error)) => return Err(error),
                 Err(_) => {
                     debug!("timeout exceeded");
-                    return Ok(());
+                    return Ok(ControlFlow::Break(()));
                 }
             }
         }
     };
     trace!("connected to upstream");
 
-    // TODO: Utilize TcpStreams' peek to never have to hold packets
+    // Forward the handshake to the upstream
     write_packet(
         &mut server_stream,
         handshake_packet.id,
@@ -176,30 +192,29 @@ async fn handle_connection(
     )
     .await?;
 
-    // Spin up constant proxy until the connection is complete
-    ProxyServer::new(server_stream, client_stream).start().await;
+    trace!("passing upstream to proxy");
 
-    Ok(())
+    Ok(ControlFlow::Continue((server_stream, handshake)))
 }
 
 async fn ping_response(
-    mut client_stream: TcpStream,
+    client_stream: &mut TcpStream,
     response: Option<&Response>,
 ) -> Result<(), TracedError<io::Error>> {
     // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
-    read_packet(&mut client_stream).await?;
+    read_packet(client_stream).await?;
 
     if let Some(response) = response {
         // The server should respond with a Status Response packet.
-        write_status_response(&mut client_stream, response).await?;
+        write_status_response(client_stream, response).await?;
     }
 
     // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
-    let packet = read_ping_request(&mut client_stream).await?;
+    let packet = read_ping_request(client_stream).await?;
     // The server will respond with the Pong Response packet and then close the connection.
-    write_pong_response(&mut client_stream, packet).await?;
+    write_pong_response(client_stream, packet).await?;
 
-    client_stream.shutdown().await.in_current_span()?;
+    InstrumentResult::in_current_span(client_stream.shutdown().await)?;
 
     Ok(())
 }
