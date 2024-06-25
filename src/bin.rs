@@ -89,7 +89,8 @@ async fn main() -> io::Result<()> {
                             error!("Error in handling connection: {}", e);
                         }
                     };
-                };
+                }
+                .instrument(trace_span!("connection"));
 
                 #[cfg(feature = "tokio-console")]
                 task::Builder::new()
@@ -106,6 +107,19 @@ async fn main() -> io::Result<()> {
 }
 
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
+
+macro_rules! timeout_break {
+    ($timeout:ident, $response:expr) => {
+        match timeout($timeout, $response).await {
+            Ok(Ok(())) => return Ok(ControlFlow::Break(())),
+            Ok(Err(error)) => return Err(error),
+            Err(_) => {
+                debug!("timeout exceeded");
+                return Ok(ControlFlow::Break(()));
+            }
+        }
+    };
+}
 
 #[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty))]
 async fn handle_connection(
@@ -129,30 +143,26 @@ async fn handle_connection(
     Span::current().record("address", &handshake.address);
     Span::current().record("next_state", handshake.next_state.to_string());
 
-    // match handshake.next_state {
-    //     proto::NextState::Ping => {
-    //         // TODO: ping fn
-    //     }
-    //     proto::NextState::Connect => todo!(),
-    //     proto::NextState::Unknown(state) => warn!(state, "unknown next_state"),
-    // }
-
     // Handle mapping
     let address = match address_map.get(&handshake.address) {
         Some(a) => a,
         None => {
             warn!("unknown address");
 
-            match timeout(
-                PING_TIMEOUT,
-                ping_response(client_stream, server_responses.no_mapping.as_ref()),
-            )
-            .await
-            {
-                Ok(Ok(())) => return Ok(ControlFlow::Break(())),
-                Ok(Err(error)) => return Err(error),
-                Err(_) => {
-                    debug!("timeout exceeded");
+            match handshake.next_state {
+                proto::NextState::Ping => {
+                    timeout_break!(
+                        PING_TIMEOUT,
+                        ping_response(client_stream, server_responses.no_mapping.as_ref())
+                    );
+                }
+                proto::NextState::Login => todo!(),
+                proto::NextState::Transfer => {
+                    error!("unimplemented");
+                    return Ok(ControlFlow::Break(()));
+                }
+                proto::NextState::Unknown(state) => {
+                    warn!(state, "unknown next_state");
                     return Ok(ControlFlow::Break(()));
                 }
             }
@@ -167,16 +177,20 @@ async fn handle_connection(
                 "could not connect to upstream"
             );
 
-            match timeout(
-                PING_TIMEOUT,
-                ping_response(client_stream, server_responses.offline.as_ref()),
-            )
-            .await
-            {
-                Ok(Ok(())) => return Ok(ControlFlow::Break(())),
-                Ok(Err(error)) => return Err(error),
-                Err(_) => {
-                    debug!("timeout exceeded");
+            match handshake.next_state {
+                proto::NextState::Ping => {
+                    timeout_break!(
+                        PING_TIMEOUT,
+                        ping_response(client_stream, server_responses.offline.as_ref())
+                    );
+                }
+                proto::NextState::Login => todo!(),
+                proto::NextState::Transfer => {
+                    error!("unimplemented");
+                    return Ok(ControlFlow::Break(()));
+                }
+                proto::NextState::Unknown(state) => {
+                    warn!(state, "unknown next_state");
                     return Ok(ControlFlow::Break(()));
                 }
             }
