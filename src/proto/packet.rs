@@ -42,7 +42,7 @@ impl Display for Handshake {
 
 /// Response packet structs
 pub mod response {
-    use super::Chat;
+    use super::TextComponent;
     use serde::{Deserialize, Serialize};
 
     /// The JSON response to a ping
@@ -51,7 +51,7 @@ pub mod response {
         pub version: Version,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub players: Option<Players>,
-        pub description: Chat,
+        pub description: TextComponent,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub favicon: Option<String>,
     }
@@ -80,7 +80,7 @@ pub mod response {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 /// A minecraft chat object
-pub enum Chat {
+pub enum TextComponent {
     ChatObject {
         text: String,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -96,7 +96,7 @@ pub enum Chat {
         #[serde(skip_serializing_if = "Option::is_none")]
         color: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        extra: Option<Vec<Chat>>,
+        extra: Option<Vec<TextComponent>>,
     },
     String(String),
 }

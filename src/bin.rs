@@ -4,11 +4,11 @@ use proto::{
         write_status_response,
     },
     response::Response,
-    Handshake,
+    string, Handshake,
 };
 use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 use tokio::{
-    io::{self, AsyncWriteExt},
+    io::{self, AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     task,
     time::timeout,
@@ -156,7 +156,12 @@ async fn handle_connection(
                         ping_response(client_stream, server_responses.no_mapping.as_ref())
                     );
                 }
-                proto::NextState::Login => todo!(),
+                proto::NextState::Login => {
+                    timeout_break!(
+                        PING_TIMEOUT,
+                        login_response(client_stream, server_responses.no_mapping.as_ref())
+                    );
+                }
                 proto::NextState::Transfer => {
                     error!("unimplemented");
                     return Ok(ControlFlow::Break(()));
@@ -184,7 +189,12 @@ async fn handle_connection(
                         ping_response(client_stream, server_responses.offline.as_ref())
                     );
                 }
-                proto::NextState::Login => todo!(),
+                proto::NextState::Login => {
+                    timeout_break!(
+                        PING_TIMEOUT,
+                        login_response(client_stream, server_responses.offline.as_ref())
+                    );
+                }
                 proto::NextState::Transfer => {
                     error!("unimplemented");
                     return Ok(ControlFlow::Break(()));
@@ -211,6 +221,7 @@ async fn handle_connection(
     Ok(ControlFlow::Continue((server_stream, handshake)))
 }
 
+#[tracing::instrument(skip_all, err)]
 async fn ping_response(
     client_stream: &mut TcpStream,
     response: Option<&Response>,
@@ -229,6 +240,35 @@ async fn ping_response(
     write_pong_response(client_stream, packet).await?;
 
     InstrumentResult::in_current_span(client_stream.shutdown().await)?;
+
+    Ok(())
+}
+
+#[tracing::instrument(skip_all, err)]
+async fn login_response(
+    client_stream: &mut TcpStream,
+    response: Option<&Response>,
+) -> Result<(), TracedError<io::Error>> {
+    // TODO: put this in a struct
+    let packet = read_packet(client_stream).await?;
+    assert_eq!(packet.id, 0x00);
+
+    let mut data_buf = packet.data.as_slice();
+    // TODO: no need for these to be async
+    let name = string::read(&mut data_buf).await?;
+    let uuid = data_buf.read_u128().await?;
+
+    println!("{name}: {uuid:x?}");
+
+    if let Some(response) = response {
+        // TODO: I can totally mechanize the construction of packets, maybe look into that?
+        write_packet(
+            client_stream,
+            0x00,
+            &string::write(&serde_json::to_string(&response.description).unwrap()),
+        )
+        .await?;
+    }
 
     Ok(())
 }

@@ -1,4 +1,4 @@
-use crate::proto::packet::{response::Response, Chat};
+use crate::proto::packet::{response::Response, TextComponent};
 use base64::Engine;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -54,7 +54,7 @@ pub struct ProxyConfig {
 #[derive(Deserialize, Debug)]
 pub struct PlaceholderServerConfig {
     /// The message to use when kicking a user from the server
-    pub kick_message: Chat,
+    pub kick_message: TextComponent,
     /// The responses config files
     pub responses: PlaceholderServerResponsesFiles,
 }
