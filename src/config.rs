@@ -3,8 +3,8 @@ use base64::Engine;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use std::net::IpAddr;
-use std::{collections::HashMap, net::SocketAddr};
 use std::path::Path;
+use std::{collections::HashMap, net::SocketAddr};
 use tokio::{fs, io};
 
 async fn load_toml<T: DeserializeOwned, P: AsRef<Path>>(path: P) -> io::Result<T> {

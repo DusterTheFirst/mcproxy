@@ -16,11 +16,7 @@ impl ProxyServer {
 
     pub async fn start(mut self) {
         match io::copy_bidirectional(&mut self.client_stream, &mut self.server_stream).await {
-            Ok((a_to_b, b_to_a)) => trace!(
-                a_to_b,
-                b_to_a,
-                "stream closed successfully"
-            ),
+            Ok((a_to_b, b_to_a)) => trace!(a_to_b, b_to_a, "stream closed successfully"),
             Err(error) => warn!(%error, "stream closed with error"),
         }
     }

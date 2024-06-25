@@ -1,15 +1,21 @@
+use proto::{
+    io::{
+        read_handshake, read_packet, read_ping_request, write_packet, write_pong_response,
+        write_status_response,
+    },
+    response::Response,
+};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::{
-    io,
+    io::{self, AsyncWriteExt},
     net::{TcpListener, TcpStream},
     task,
 };
 use tracing::{debug, error, field, info, trace, warn, Span};
-use tracing_error::{ErrorLayer, TracedError};
+use tracing_error::{ErrorLayer, InstrumentResult, TracedError};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 use crate::config::{Config, PlaceholderServerResponsesParsed};
-use crate::proto::PacketManipulation;
 use crate::proxy_server::ProxyServer;
 
 pub mod config;
@@ -107,7 +113,7 @@ async fn handle_connection(
     trace!("new connection");
 
     // First, the client sends a Handshake packet with its state set to 1.
-    let (handshake, handshake_packet) = client_stream.read_handshake().await?;
+    let (handshake, handshake_packet) = read_handshake(&mut client_stream).await?;
     debug!(
         address = handshake.address,
         port = handshake.port,
@@ -117,13 +123,13 @@ async fn handle_connection(
     );
     Span::current().record("address", &handshake.address);
 
-    match handshake.next_state {
-        proto::NextState::Ping => {
-            // TODO: ping fn
-        }
-        proto::NextState::Connect => todo!(),
-        proto::NextState::Unknown(state) => warn!(state, "unknown next_state"),
-    }
+    // match handshake.next_state {
+    //     proto::NextState::Ping => {
+    //         // TODO: ping fn
+    //     }
+    //     proto::NextState::Connect => todo!(),
+    //     proto::NextState::Unknown(state) => warn!(state, "unknown next_state"),
+    // }
 
     // Handle mapping
     let address = match address_map.get(&handshake.address) {
@@ -131,21 +137,7 @@ async fn handle_connection(
         None => {
             warn!("unknown address");
 
-            // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
-            client_stream.read_packet().await?;
-
-            if let Some(ref response) = server_responses.no_mapping {
-                trace!("sending with no_mapping motd");
-                // The server should respond with a Status Response packet.
-                client_stream.write_status_response(response).await?;
-            }
-
-            // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
-            let packet = client_stream.read_ping_request().await?;
-            // The server will respond with the Pong Response packet and then close the connection.
-            client_stream.write_pong_response(packet).await?;
-
-            return Ok(());
+            return ping_response(client_stream, server_responses.no_mapping.as_ref()).await;
         }
     };
 
@@ -157,34 +149,45 @@ async fn handle_connection(
                 "could not connect to upstream"
             );
 
-            // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
-            client_stream.read_packet().await?;
-
-            if let Some(ref response) = server_responses.offline {
-                trace!("sending offline motd");
-                // The server should respond with a Status Response packet.
-                client_stream.write_status_response(response).await?;
-            }
-
-            // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
-            let packet = client_stream.read_ping_request().await?;
-            // The server will respond with the Pong Response packet and then close the connection.
-            client_stream.write_pong_response(packet).await?;
-
-            return Ok(());
+            return ping_response(client_stream, server_responses.offline.as_ref()).await;
         }
     };
     trace!("connected to upstream");
 
     // TODO: Utilize TcpStreams' peek to never have to hold packets
-    server_stream
-        .write_packet(handshake_packet.id, &handshake_packet.data)
-        .await?;
+    write_packet(
+        &mut server_stream,
+        handshake_packet.id,
+        &handshake_packet.data,
+    )
+    .await?;
 
     // Spin up constant proxy until the connection is complete
     ProxyServer::new(server_stream, client_stream).start().await;
 
     trace!("Connection closed");
+
+    Ok(())
+}
+
+async fn ping_response(
+    mut client_stream: TcpStream,
+    response: Option<&Response>,
+) -> Result<(), TracedError<io::Error>> {
+    // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
+    read_packet(&mut client_stream).await?;
+
+    if let Some(response) = response {
+        // The server should respond with a Status Response packet.
+        write_status_response(&mut client_stream, response).await?;
+    }
+
+    // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
+    let packet = read_ping_request(&mut client_stream).await?;
+    // The server will respond with the Pong Response packet and then close the connection.
+    write_pong_response(&mut client_stream, packet).await?;
+
+    client_stream.shutdown().await.in_current_span()?;
 
     Ok(())
 }
