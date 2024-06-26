@@ -32,6 +32,7 @@ async fn main() -> io::Result<()> {
     info!("proxy starting");
 
     // TODO: config file + cmd line opts
+    // TODO: hot reload (tcp?)
     let config: Config = Config::load("./example/config.toml").await?;
 
     let address_map = Arc::new(config.servers);
