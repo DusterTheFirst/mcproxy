@@ -6,7 +6,7 @@ use proto::{
     response::Response,
     string, Handshake,
 };
-use std::{collections::HashMap, net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
+use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -17,7 +17,7 @@ use trace::init_tracing_subscriber;
 use tracing::{debug, error, field, info, trace, trace_span, warn, Instrument, Span};
 use tracing_error::{InstrumentResult, TracedError};
 
-use crate::config::{Config, PlaceholderServerResponsesParsed};
+use crate::config::Config;
 use crate::proxy_server::ProxyServer;
 
 pub mod config;
@@ -26,28 +26,32 @@ pub mod proxy_server;
 pub mod trace;
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), TracedError<io::Error>> {
     init_tracing_subscriber();
 
     info!("proxy starting");
 
     // TODO: config file + cmd line opts
     // TODO: hot reload (tcp?)
-    let config: Config = Config::load("./example/config.toml").await?;
+    // let config: Config = Config::load("./example/config.toml").await?;
+    // let config = Arc::new(config);
 
-    let address_map = Arc::new(config.servers);
-    let server_responses: Arc<PlaceholderServerResponsesParsed> =
-        Arc::new(config.placeholder_server.responses.load().await?);
+    let config = InstrumentResult::in_current_span(
+        Config::load_and_watch("./example/config.toml".into()).await,
+    )?;
+    let current_config = config.borrow().clone();
 
-    let listener = TcpListener::bind(SocketAddr::new(config.proxy.address, config.proxy.port))
+    let listener = TcpListener::bind(SocketAddr::new(current_config.proxy.address, current_config.proxy.port))
         .await
         .expect("Unable to bind to socket");
 
     info!(
-        port = config.proxy.port,
-        address = %config.proxy.address,
+        port = current_config.proxy.port,
+        address = %current_config.proxy.address,
         "proxy server listening",
     );
+
+    drop(current_config);
 
     // Accept connections as they come in
     loop {
@@ -56,8 +60,7 @@ async fn main() -> io::Result<()> {
         match stream {
             Ok((mut client_stream, address)) => {
                 // Clone pointers to the address map and server responses
-                let address_map = address_map.clone();
-                let server_responses = server_responses.clone();
+                let config = config.borrow().clone();
 
                 // Get the connection id
                 let connection_id = client_stream.peer_addr().unwrap().port();
@@ -67,8 +70,7 @@ async fn main() -> io::Result<()> {
                     // Handle the connection
                     match handle_connection(
                         connection_id,
-                        address_map,
-                        server_responses,
+                        config,
                         &mut client_stream,
                     )
                     .await
@@ -125,8 +127,7 @@ macro_rules! timeout_break {
 #[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty))]
 async fn handle_connection(
     connection_id: u16,
-    address_map: Arc<HashMap<String, SocketAddr>>,
-    server_responses: Arc<PlaceholderServerResponsesParsed>,
+    config: Arc<Config>,
     client_stream: &mut TcpStream,
 ) -> Result<ControlFlow<(), (TcpStream, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
@@ -145,7 +146,7 @@ async fn handle_connection(
     Span::current().record("next_state", handshake.next_state.to_string());
 
     // Handle mapping
-    let address = match address_map.get(&handshake.address) {
+    let address = match config.servers.get(&handshake.address) {
         Some(a) => a,
         None => {
             warn!("unknown address");
@@ -154,13 +155,19 @@ async fn handle_connection(
                 proto::NextState::Ping => {
                     timeout_break!(
                         PING_TIMEOUT,
-                        ping_response(client_stream, server_responses.no_mapping.as_ref())
+                        ping_response(
+                            client_stream,
+                            config.placeholder_server.responses.no_mapping.as_ref()
+                        )
                     );
                 }
                 proto::NextState::Login => {
                     timeout_break!(
                         PING_TIMEOUT,
-                        login_response(client_stream, server_responses.no_mapping.as_ref())
+                        login_response(
+                            client_stream,
+                            config.placeholder_server.responses.no_mapping.as_ref()
+                        )
                     );
                 }
                 proto::NextState::Transfer => {
@@ -175,7 +182,10 @@ async fn handle_connection(
         }
     };
 
-    let mut server_stream = match TcpStream::connect(address).await {
+    let mut server_stream = match TcpStream::connect(address)
+        .instrument(trace_span!("connect_upstream"))
+        .await
+    {
         Ok(stream) => stream,
         Err(error) => {
             error!(
@@ -187,13 +197,19 @@ async fn handle_connection(
                 proto::NextState::Ping => {
                     timeout_break!(
                         PING_TIMEOUT,
-                        ping_response(client_stream, server_responses.offline.as_ref())
+                        ping_response(
+                            client_stream,
+                            config.placeholder_server.responses.offline.as_ref()
+                        )
                     );
                 }
                 proto::NextState::Login => {
                     timeout_break!(
                         PING_TIMEOUT,
-                        login_response(client_stream, server_responses.offline.as_ref())
+                        login_response(
+                            client_stream,
+                            config.placeholder_server.responses.offline.as_ref()
+                        )
                     );
                 }
                 proto::NextState::Transfer => {
