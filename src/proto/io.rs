@@ -5,7 +5,7 @@ use tokio::{
 };
 use tracing_error::{InstrumentResult, TracedError};
 
-use crate::proto::{response::Response, string, var_int, Handshake, NextState, Packet};
+use crate::proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet};
 
 /// Write a packet and output its data
 #[tracing::instrument(skip(stream, data), fields(len=data.len()), err)]
@@ -90,7 +90,7 @@ pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedErro
 #[tracing::instrument(skip(stream), err)]
 pub async fn write_status_response(
     stream: &mut TcpStream,
-    response: &Response,
+    response: &StatusResponse,
 ) -> Result<Packet, TracedError<io::Error>> {
     let response = string::write(&serde_json::to_string(response).unwrap());
 

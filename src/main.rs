@@ -3,7 +3,7 @@ use proto::{
         read_handshake, read_packet, read_ping_request, write_packet, write_pong_response,
         write_status_response,
     },
-    response::Response,
+    response::StatusResponse,
     string, Handshake,
 };
 use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
@@ -36,7 +36,7 @@ async fn main() -> Result<(), TracedError<io::Error>> {
     // let config: Config = Config::load("./example/config.toml").await?;
     // let config = Arc::new(config);
 
-    let config = Config::load_and_watch("./example/config.toml".into()).await?;
+    let config = config::load_and_watch("./example/config.toml".into()).await?;
     let current_config = config.borrow().clone();
 
     let listener = TcpListener::bind(SocketAddr::new(
@@ -236,7 +236,7 @@ async fn handle_connection(
 #[tracing::instrument(skip_all, err)]
 async fn ping_response(
     client_stream: &mut TcpStream,
-    response: Option<&Response>,
+    response: Option<&StatusResponse>,
 ) -> Result<(), TracedError<io::Error>> {
     // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
     read_packet(client_stream).await?;
@@ -259,7 +259,7 @@ async fn ping_response(
 #[tracing::instrument(skip_all, err)]
 async fn login_response(
     client_stream: &mut TcpStream,
-    response: Option<&Response>,
+    response: Option<&StatusResponse>,
 ) -> Result<(), TracedError<io::Error>> {
     // TODO: put this in a struct
     let packet = read_packet(client_stream).await?;

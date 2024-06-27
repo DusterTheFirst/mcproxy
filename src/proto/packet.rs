@@ -47,7 +47,7 @@ pub mod response {
 
     /// The JSON response to a ping
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    pub struct Response {
+    pub struct StatusResponse {
         pub version: Version,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub players: Option<Players>,

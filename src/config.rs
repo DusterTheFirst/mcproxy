@@ -1,10 +1,9 @@
 use base64::Engine;
-use serde::{de::DeserializeOwned, Deserialize};
+use schema::{GenericConfig, PlaceholderServerConfig, PlaceholderServerResponses};
+use serde::de::DeserializeOwned;
 use std::{
-    collections::HashMap,
     error::Error,
-    fmt::Debug,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
     sync::Arc,
@@ -21,8 +20,14 @@ use tokio::{
 };
 use tracing::{debug, error, info, trace, trace_span, Instrument};
 use tracing_error::{InstrumentError, TracedError};
+use util::Raw;
 
-use crate::proto::packet::{response::Response, TextComponent};
+use crate::proto::packet::response::StatusResponse;
+
+mod schema;
+mod util;
+
+pub use schema::Config;
 
 #[tracing::instrument(name = "config::load_toml")]
 async fn load_toml<T: DeserializeOwned>(path: &Path) -> Result<T, TracedError<io::Error>> {
@@ -38,8 +43,8 @@ async fn load_toml<T: DeserializeOwned>(path: &Path) -> Result<T, TracedError<io
 
 /// Convert the favicon from a URL to the rendered base64 data
 #[tracing::instrument(name = "config::load_favicon")]
-async fn load_favicon(response: Response) -> Result<Response, TracedError<io::Error>> {
-    Ok(Response {
+async fn load_favicon(response: StatusResponse) -> Result<StatusResponse, TracedError<io::Error>> {
+    Ok(StatusResponse {
         favicon: if let Some(favicon) = response.favicon {
             Some(format!(
                 "data:image/png;base64,{}",
@@ -57,74 +62,60 @@ async fn load_favicon(response: Response) -> Result<Response, TracedError<io::Er
     })
 }
 
-pub type Config = GenericConfig<Elaborated>;
+#[tracing::instrument(name = "config::load")]
+pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
+    let raw = load_toml::<GenericConfig<Raw>>(path).await?;
 
-#[derive(Deserialize, Debug)]
-pub struct GenericConfig<T: Marker> {
-    /// The config for the placeholder server
-    pub placeholder_server: PlaceholderServerConfig<T>,
-    /// The mapping of servers to their addresses
-    pub servers: HashMap<String, SocketAddr>,
-    /// Settings for the proxy server
-    pub proxy: ProxyConfig,
-}
-
-impl Config {
-    #[tracing::instrument(name = "Config::load")]
-    pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
-        let raw = load_toml::<GenericConfig<Raw>>(path).await?;
-
-        Ok(Config {
-            placeholder_server: PlaceholderServerConfig {
-                kick_message: raw.placeholder_server.kick_message,
-                responses: PlaceholderServerResponses {
-                    offline: match &raw.placeholder_server.responses.offline {
-                        Some(path) => Some(load_favicon(load_toml(path).await?).await?),
-                        None => None,
-                    },
-                    no_mapping: match &raw.placeholder_server.responses.no_mapping {
-                        Some(path) => Some(load_favicon(load_toml(path).await?).await?),
-                        None => None,
-                    },
+    Ok(Config {
+        placeholder_server: PlaceholderServerConfig {
+            kick_message: raw.placeholder_server.kick_message,
+            responses: PlaceholderServerResponses {
+                offline: match &raw.placeholder_server.responses.offline {
+                    Some(path) => Some(load_favicon(load_toml(path).await?).await?),
+                    None => None,
+                },
+                no_mapping: match &raw.placeholder_server.responses.no_mapping {
+                    Some(path) => Some(load_favicon(load_toml(path).await?).await?),
+                    None => None,
                 },
             },
-            servers: raw.servers,
-            proxy: raw.proxy,
-        })
-    }
+        },
+        servers: raw.servers,
+        proxy: raw.proxy,
+    })
+}
 
-    pub async fn load_and_watch(
-        path: PathBuf,
-    ) -> Result<tokio::sync::watch::Receiver<Arc<Config>>, TracedError<io::Error>> {
-        let address = SocketAddr::from_str("127.0.0.1:9876").unwrap();
-        let socket = TcpListener::bind(address).await?;
-        info!(%address, "UI running");
+pub async fn load_and_watch(
+    path: PathBuf,
+) -> Result<tokio::sync::watch::Receiver<Arc<Config>>, TracedError<io::Error>> {
+    let address = SocketAddr::from_str("127.0.0.1:9876").unwrap();
+    let socket = TcpListener::bind(address).await?;
+    info!(%address, "UI running");
 
-        let (sender, receiver) = tokio::sync::watch::channel(Arc::new(Config::load(&path).await?));
+    let (sender, receiver) = tokio::sync::watch::channel(Arc::new(self::load(&path).await?));
 
-        task::spawn(async move {
-            let sender = sender;
+    task::spawn(async move {
+        let sender = sender;
 
-            loop {
-                match socket.accept().await {
-                    Ok((mut stream, address)) => {
-                        let (reader, writer) = stream.split();
+        loop {
+            match socket.accept().await {
+                Ok((mut stream, address)) => {
+                    let (reader, writer) = stream.split();
 
-                        let reader = BufReader::new(reader);
-                        let writer = BufWriter::new(writer);
+                    let reader = BufReader::new(reader);
+                    let writer = BufWriter::new(writer);
 
-                        match handle_http(reader, writer, &sender, &path).await {
-                            Ok(()) => {}
-                            Err(error) => error!(%error, "encountered error handling http request"),
-                        }
+                    match handle_http(reader, writer, &sender, &path).await {
+                        Ok(()) => {}
+                        Err(error) => error!(%error, "encountered error handling http request"),
                     }
-                    Err(error) => error!(%error, "failed to process http request"),
                 }
+                Err(error) => error!(%error, "failed to process http request"),
             }
-        });
+        }
+    });
 
-        Ok(receiver)
-    }
+    Ok(receiver)
 }
 
 #[tracing::instrument(skip_all, name = "config::handle_http")]
@@ -157,7 +148,7 @@ async fn handle_http(
 
     if url_path == URL {
         if method == METHOD {
-            match Config::load(path).await {
+            match self::load(path).await {
                 Ok(new_config) => {
                     debug!("new configuration parsed");
                     sender.send_replace(Arc::new(new_config));
@@ -205,50 +196,4 @@ async fn handle_http(
     writer.flush().await?;
 
     Ok(())
-}
-
-#[derive(Deserialize, Debug)]
-pub struct ProxyConfig {
-    /// The port to bind to
-    pub port: u16,
-    /// The address to bind to
-    pub address: IpAddr,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct PlaceholderServerConfig<T: Marker> {
-    /// The message to use when kicking a user from the server
-    pub kick_message: TextComponent, // TODO: remove?
-    /// The responses config files
-    pub responses: PlaceholderServerResponses<T>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct PlaceholderServerResponses<T: Marker> {
-    /// Response for server when mapping exists but connection failed
-    pub offline: Option<T::PointerType>,
-    /// Response for server when no mapping exists
-    pub no_mapping: Option<T::PointerType>,
-}
-
-mod private {
-    pub trait Sealed {}
-}
-
-pub trait Marker: private::Sealed {
-    type PointerType: DeserializeOwned + Debug;
-}
-
-#[derive(Deserialize)]
-pub struct Raw {}
-impl private::Sealed for Raw {}
-impl Marker for Raw {
-    type PointerType = PathBuf;
-}
-
-#[derive(Deserialize)]
-pub struct Elaborated {}
-impl private::Sealed for Elaborated {}
-impl Marker for Elaborated {
-    type PointerType = Response;
 }
