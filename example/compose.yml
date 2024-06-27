@@ -17,3 +17,5 @@ services:
     environment:
       EULA: "TRUE"
       TYPE: "paper"
+    volumes:
+      - ./pack.png:/data/server-icon.png:ro
