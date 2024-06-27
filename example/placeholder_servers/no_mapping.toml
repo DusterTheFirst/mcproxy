@@ -20,12 +20,12 @@ online = 0
 # The list of players to show on hover
 [[players.sample]]
 # The "player" name
+id   = "00000000-0000-0000-0000-000000000000"
 name = "§4No server exists under this domain"
-id = "00000000-0000-0000-0000-000000000000"
 
 [[players.sample]]
+id   = "00000000-0000-0000-0000-000000000000"
 name = "§9Check your spelling and try again"
-id = "00000000-0000-0000-0000-000000000000"
 
 # The MOTD
 [description]
@@ -36,11 +36,11 @@ color = "red"
 
 # Other components
 [[description.extra]]
-text = " Server not found\n"
-bold = true
+bold  = true
 color = "dark_red"
+text  = " Server not found\n"
 
 [[description.extra]]
-text = "Contact your server administrator for assistance"
+color  = "gold"
 italic = true
-color = "gold"
+text   = "Contact your server administrator for assistance"

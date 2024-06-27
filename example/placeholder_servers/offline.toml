@@ -19,12 +19,12 @@ online = 0
 
 # The list of players to show on hover
 [[players.sample]]
+id   = "00000000-0000-0000-0000-000000000000"
 name = "§4Can't connect to the server."
-id = "00000000-0000-0000-0000-000000000000"
 
 [[players.sample]]
+id   = "00000000-0000-0000-0000-000000000000"
 name = "§9The server may be offline."
-id = "00000000-0000-0000-0000-000000000000"
 
 # The MOTD
 [description]
@@ -35,11 +35,11 @@ color = "red"
 
 # Other components
 [[description.extra]]
-text = " Can't connect to the server.\n"
-bold = true
+bold  = true
 color = "dark_red"
+text  = " Can't connect to the server.\n"
 
 [[description.extra]]
-text = "Contact your server administrator for assistance"
+color  = "gold"
 italic = true
-color = "gold"
+text   = "Contact your server administrator for assistance"
