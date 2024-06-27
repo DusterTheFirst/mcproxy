@@ -3,6 +3,7 @@ authors = ["DusterTheFirst <14093962+DusterTheFirst@users.noreply.github.com>"]
 edition = "2021"
 name    = "mcproxy"
 version = "0.1.0"
+license = "MPL-2.0"
 
 [profile.release]
 # debug = "line-tables-only"

@@ -1,14 +1,14 @@
 # MCPROXY
 
-[![GitHub License](https://img.shields.io/github/license/dusterthefirst/mcproxy?logo=gnu)](https://github.com/DusterTheFirst/mcproxy/blob/master/LICENSE.md)
+[![GitHub License](https://img.shields.io/github/license/dusterthefirst/mcproxy?logo=mozilla)](https://github.com/DusterTheFirst/mcproxy/blob/master/LICENSE.md)
 [![GitHub issues](https://img.shields.io/github/issues/dusterthefirst/mcproxy?logo=github)](https://github.com/DusterTheFirst/mcproxy/issues)
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/dusterthefirst/mcproxy?logo=github)](https://github.com/DusterTheFirst/mcproxy/pulls)
 [![Actions Status](https://github.com/DusterTheFirst/mcproxy/workflows/Test/badge.svg)](https://github.com/DusterTheFirst/mcproxy/actions)
-[![Actions Status](https://github.com/DusterTheFirst/mcproxy/workflows/Deploy/badge.svg)](https://github.com/DusterTheFirst/mcproxy/actions)
 ![Clippy](https://img.shields.io/badge/linter-clippy-informational?logo=rust)
 ![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-informational?logo=rust)
 
-> Extension of [mcsleep](https://github.com/DusterTheFirst/MGMT/tree/master/mcsleep) to work as a reverse proxy for minecraft servers
+> A reverse proxy for your Minecraft: Java Edition servers
+> Based on the prior work of [mcsleep](https://github.com/DusterTheFirst/MGMT/tree/master/mcsleep)
 
 ## Configuration
 
@@ -18,20 +18,13 @@
 curl -X POST http://localhost:9876/-/reload
 ```
 
-```raw
-MCProxy - Low cost minecraft reverse proxy
+## License
+
+<sup>
 Copyright (C) 2019-2024  Zachary Kohnen (DusterTheFirst)
+</sup>
+<sub>
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+Licensed under [Mozilla Public License v. 2.0](http://mozilla.org/MPL/2.0/)
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-```
+</sub>
