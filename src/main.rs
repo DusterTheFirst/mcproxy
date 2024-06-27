@@ -6,7 +6,7 @@ use proto::{
     response::StatusResponse,
     string, Handshake,
 };
-use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
+use std::{ops::ControlFlow, sync::Arc, time::Duration};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -26,7 +26,7 @@ pub mod proxy_server;
 pub mod trace;
 
 #[tokio::main]
-async fn main() -> Result<(), TracedError<io::Error>> {
+async fn main() -> eyre::Result<()> {
     init_tracing_subscriber();
 
     info!("proxy starting");
@@ -35,16 +35,12 @@ async fn main() -> Result<(), TracedError<io::Error>> {
     let config = config::load_and_watch("./example/config.toml".into()).await?;
     let current_config = config.borrow().clone();
 
-    let listener = TcpListener::bind(SocketAddr::new(
-        current_config.proxy.address,
-        current_config.proxy.port,
-    ))
-    .await
-    .expect("Unable to bind to socket");
+    let listener = TcpListener::bind(current_config.proxy.listen_address)
+        .await
+        .expect("Unable to bind to socket");
 
     info!(
-        port = current_config.proxy.port,
-        address = %current_config.proxy.address,
+        listen_address = %current_config.proxy.listen_address,
         "proxy server listening",
     );
 
@@ -137,7 +133,7 @@ async fn handle_connection(
     Span::current().record("next_state", handshake.next_state.to_string());
 
     // Handle mapping
-    let address = match config.servers.get(&handshake.address) {
+    let address = match config.static_servers.get(&handshake.address) {
         Some(a) => a,
         None => {
             warn!("unknown address");

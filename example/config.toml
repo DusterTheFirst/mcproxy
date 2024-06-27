@@ -1,7 +1,13 @@
 "$schema" = "../target/schema/config.schema.json"
 
+# [ui]
+# listen_address = "127.0.0.1:9876"
+
+# [discovery.docker]
+# socket = "/var/run/docker.sock"
+
 # A map of server addresses
-[servers]
+[static_servers]
 "0.mcproxy.dusterthefirst.com" = "127.0.0.1:25570"
 "1.mcproxy.dusterthefirst.com" = "127.0.0.1:25571"
 "2.mcproxy.dusterthefirst.com" = "127.0.0.1:25572"
@@ -12,10 +18,8 @@
 
 # Configuration for the proxy server
 [proxy]
-# The port to bind to
-port = 25565
-# The address to bind to
-address = "0.0.0.0"
+# Address to bind the Minecraft proxy to
+listen_address = "0.0.0.0:25565"
 
 [placeholder_server.responses]
 # The file (if any) to the config of the response to send when a server cannot be connected to

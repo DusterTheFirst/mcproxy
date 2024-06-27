@@ -3,9 +3,7 @@ use schema::{GenericConfig, PlaceholderServerConfig, PlaceholderServerResponses}
 use serde::de::DeserializeOwned;
 use std::{
     error::Error,
-    net::SocketAddr,
     path::{Path, PathBuf},
-    str::FromStr,
     sync::Arc,
 };
 use tokio::{
@@ -67,6 +65,10 @@ pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
     let raw = load_toml::<GenericConfig<Raw>>(path).await?;
 
     Ok(Config {
+        discovery: raw.discovery,
+        ui: raw.ui,
+        static_servers: raw.static_servers,
+        proxy: raw.proxy,
         placeholder_server: PlaceholderServerConfig {
             responses: PlaceholderServerResponses {
                 offline: match &raw.placeholder_server.responses.offline {
@@ -79,40 +81,41 @@ pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
                 },
             },
         },
-        servers: raw.servers,
-        proxy: raw.proxy,
     })
 }
 
 pub async fn load_and_watch(
     path: PathBuf,
 ) -> Result<tokio::sync::watch::Receiver<Arc<Config>>, TracedError<io::Error>> {
-    let address = SocketAddr::from_str("127.0.0.1:9876").unwrap();
-    let socket = TcpListener::bind(address).await?;
-    info!(%address, "UI running");
+    let initial_config = Arc::new(self::load(&path).await?);
 
-    let (sender, receiver) = tokio::sync::watch::channel(Arc::new(self::load(&path).await?));
+    let (sender, receiver) = tokio::sync::watch::channel(initial_config.clone());
 
-    task::spawn(async move {
-        let sender = sender;
+    if let Some(ref ui) = initial_config.ui {
+        let socket = TcpListener::bind(ui.listen_address).await?;
+        info!(listen_address = %ui.listen_address, "UI running");
 
-        loop {
-            match socket.accept().await {
-                Ok((mut stream, address)) => {
-                    let (reader, writer) = stream.split();
+        task::spawn(async move {
+            let sender = sender;
 
-                    let reader = BufReader::new(reader);
-                    let writer = BufWriter::new(writer);
+            loop {
+                match socket.accept().await {
+                    Ok((mut stream, address)) => {
+                        let (reader, writer) = stream.split();
 
-                    match handle_http(reader, writer, &sender, &path).await {
-                        Ok(()) => {}
-                        Err(error) => error!(%error, "encountered error handling http request"),
+                        let reader = BufReader::new(reader);
+                        let writer = BufWriter::new(writer);
+
+                        match handle_http(reader, writer, &sender, &path).await {
+                            Ok(()) => {}
+                            Err(error) => error!(%error, "encountered error handling http request"),
+                        }
                     }
+                    Err(error) => error!(%error, "failed to process http request"),
                 }
-                Err(error) => error!(%error, "failed to process http request"),
             }
-        }
-    });
+        });
+    }
 
     Ok(receiver)
 }

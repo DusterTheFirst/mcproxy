@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    net::{IpAddr, SocketAddr},
-};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
 
 use serde::Deserialize;
 
@@ -15,18 +12,24 @@ pub struct GenericConfig<T: Marker> {
     /// The config for the placeholder server
     pub placeholder_server: PlaceholderServerConfig<T>,
     /// The mapping of servers to their addresses
-    pub servers: HashMap<String, SocketAddr>,
+    pub static_servers: HashMap<String, SocketAddr>,
+    /// Server discovery configuration
+    pub discovery: Option<ServerDiscoveryConfig>,
+    /// Setting for the UI Server
+    ///
+    /// Can not be live-reloaded
+    pub ui: Option<UiServerConfig>,
     /// Settings for the proxy server
+    ///
+    /// Can not be live-reloaded
     pub proxy: ProxyConfig,
 }
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ProxyConfig {
-    /// The port to bind to
-    pub port: u16,
-    /// The address to bind to
-    pub address: IpAddr,
+    /// Address to bind the Minecraft proxy to
+    pub listen_address: SocketAddr,
 }
 
 #[derive(Deserialize, Debug)]
@@ -43,6 +46,27 @@ pub struct PlaceholderServerResponses<T: Marker> {
     pub offline: Option<T::PointerType>,
     /// Response for server when no mapping exists
     pub no_mapping: Option<T::PointerType>,
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct UiServerConfig {
+    /// Address to bind the HTTP server to
+    pub listen_address: SocketAddr,
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct ServerDiscoveryConfig {
+    /// Configuration for docker service discovery
+    docker: Option<DockerServerDiscoveryConfig>,
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct DockerServerDiscoveryConfig {
+    /// Path to the docker socket
+    socket: PathBuf,
 }
 
 #[cfg(test)]
