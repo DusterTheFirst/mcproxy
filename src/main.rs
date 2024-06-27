@@ -36,14 +36,15 @@ async fn main() -> Result<(), TracedError<io::Error>> {
     // let config: Config = Config::load("./example/config.toml").await?;
     // let config = Arc::new(config);
 
-    let config = InstrumentResult::in_current_span(
-        Config::load_and_watch("./example/config.toml".into()).await,
-    )?;
+    let config = Config::load_and_watch("./example/config.toml".into()).await?;
     let current_config = config.borrow().clone();
 
-    let listener = TcpListener::bind(SocketAddr::new(current_config.proxy.address, current_config.proxy.port))
-        .await
-        .expect("Unable to bind to socket");
+    let listener = TcpListener::bind(SocketAddr::new(
+        current_config.proxy.address,
+        current_config.proxy.port,
+    ))
+    .await
+    .expect("Unable to bind to socket");
 
     info!(
         port = current_config.proxy.port,
@@ -68,13 +69,7 @@ async fn main() -> Result<(), TracedError<io::Error>> {
                 // Fork off the connection handling
                 let task = async move {
                     // Handle the connection
-                    match handle_connection(
-                        connection_id,
-                        config,
-                        &mut client_stream,
-                    )
-                    .await
-                    {
+                    match handle_connection(connection_id, config, &mut client_stream).await {
                         Ok(ControlFlow::Continue((server_stream, handshake))) => {
                             // Spin up constant proxy until the connection is complete
                             ProxyServer::new(server_stream, client_stream)

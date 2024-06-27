@@ -9,7 +9,7 @@ version = "0.1.0"
 lto   = "thin"
 
 [features]
-telemetry     = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry-semantic-conventions", "dep:opentelemetry_sdk"]
+telemetry     = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry-semantic-conventions", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry"]
 tokio-console = ["dep:console-subscriber"]
 
 [dependencies]
