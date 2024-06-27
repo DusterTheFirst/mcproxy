@@ -9,33 +9,25 @@ mod private {
 }
 
 pub trait Marker: private::Sealed {
+    #[cfg(not(feature = "schemars"))]
     type PointerType: DeserializeOwned + Debug;
+
+    #[cfg(feature = "schemars")]
+    type PointerType: DeserializeOwned + schemars::JsonSchema + Debug;
 }
 
+#[derive(Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Raw {}
 impl private::Sealed for Raw {}
 impl Marker for Raw {
     type PointerType = PathBuf;
 }
-impl<'d> Deserialize<'d> for Raw {
-    fn deserialize<D>(_: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'d>,
-    {
-        Ok(Self {})
-    }
-}
 
+#[derive(Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Elaborated {}
 impl private::Sealed for Elaborated {}
 impl Marker for Elaborated {
     type PointerType = StatusResponse;
-}
-impl<'d> Deserialize<'d> for Elaborated {
-    fn deserialize<D>(_: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'d>,
-    {
-        Ok(Self {})
-    }
 }

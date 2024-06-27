@@ -1,3 +1,5 @@
+"$schema" = "../target/schema/config.schema.json"
+
 # A map of server addresses
 [servers]
 "0.mcproxy.dusterthefirst.com" = "127.0.0.1:25570"

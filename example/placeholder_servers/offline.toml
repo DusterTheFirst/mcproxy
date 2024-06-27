@@ -1,3 +1,5 @@
+"$schema" = "../../target/schema/response.schema.json"
+
 # The favicon to show
 favicon = "./example/BarrierNew.png"
 
@@ -11,13 +13,13 @@ protocol = 0
 # The players listing
 [players]
 # The maximum player count
-max = 0
+max = 1
 # The online player count
 online = 0
 
 # The list of players to show on hover
 [[players.sample]]
-name = "§4Cant connect to the server."
+name = "§4Can't connect to the server."
 id = "00000000-0000-0000-0000-000000000000"
 
 [[players.sample]]
@@ -33,7 +35,7 @@ color = "red"
 
 # Other components
 [[description.extra]]
-text = " Cant connect to the server.\n"
+text = " Can't connect to the server.\n"
 bold = true
 color = "dark_red"
 
