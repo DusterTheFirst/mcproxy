@@ -27,19 +27,6 @@ pub struct Handshake {
     pub next_state: NextState,
 }
 
-// TODO: Debug shows large view, DISPLAY hides data
-impl Display for Handshake {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        writeln!(f, "Handshake Data:")?;
-        writeln!(f, "    Protocol version: {}", self.protocol_version)?;
-        writeln!(f, "    Address: {}", self.address)?;
-        writeln!(f, "    Port: {}", self.port)?;
-        write!(f, "    Next State: {:?}", self.next_state)?;
-
-        Ok(())
-    }
-}
-
 /// Response packet structs
 pub mod response {
     use super::TextComponent;

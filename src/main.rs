@@ -31,11 +31,7 @@ async fn main() -> Result<(), TracedError<io::Error>> {
 
     info!("proxy starting");
 
-    // TODO: config file + cmd line opts
-    // TODO: hot reload (tcp?)
-    // let config: Config = Config::load("./example/config.toml").await?;
-    // let config = Arc::new(config);
-
+    // TODO: command line options
     let config = config::load_and_watch("./example/config.toml".into()).await?;
     let current_config = config.borrow().clone();
 

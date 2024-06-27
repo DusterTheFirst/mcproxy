@@ -7,7 +7,7 @@
 ![Clippy](https://img.shields.io/badge/linter-clippy-informational?logo=rust)
 ![Rustfmt](https://img.shields.io/badge/code%20style-rustfmt-informational?logo=rust)
 
-> A reverse proxy for your Minecraft: Java Edition servers
+> A reverse proxy for your Minecraft: Java Edition servers.
 > Based on the prior work of [mcsleep](https://github.com/DusterTheFirst/MGMT/tree/master/mcsleep)
 
 ## Configuration

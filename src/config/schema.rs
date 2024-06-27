@@ -5,8 +5,6 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::proto::TextComponent;
-
 use super::util::{Elaborated, Marker};
 
 pub type Config = GenericConfig<Elaborated>;
@@ -34,8 +32,6 @@ pub struct ProxyConfig {
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PlaceholderServerConfig<T: Marker> {
-    /// The message to use when kicking a user from the server
-    pub kick_message: TextComponent, // TODO: remove?
     /// The responses config files
     pub responses: PlaceholderServerResponses<T>,
 }

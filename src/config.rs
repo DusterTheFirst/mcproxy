@@ -68,7 +68,6 @@ pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
 
     Ok(Config {
         placeholder_server: PlaceholderServerConfig {
-            kick_message: raw.placeholder_server.kick_message,
             responses: PlaceholderServerResponses {
                 offline: match &raw.placeholder_server.responses.offline {
                     Some(path) => Some(load_favicon(load_toml(path).await?).await?),
