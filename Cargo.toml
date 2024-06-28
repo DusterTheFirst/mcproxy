@@ -10,9 +10,15 @@ version = "0.1.0"
 lto = "thin"
 
 [features]
-schemars      = ["dep:schemars"]
+# Discovery
+discovery-docker = ["dep:bollard", "dep:tokio-stream"]
+
+# Observability
 telemetry     = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry-semantic-conventions", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry"]
 tokio-console = ["dep:console-subscriber"]
+
+# Development
+schemars = ["dep:schemars"]
 
 [dependencies]
 base64             = "0.22.1"
@@ -37,3 +43,7 @@ tracing-opentelemetry              = { version = "0.24.0", optional = true }
 
 # schemars
 schemars = { version = "1.0.0-alpha.2", optional = true }
+
+# docker discovery
+bollard      = { version = "0.16.1", optional = true }
+tokio-stream = { version = "0.1.15", optional = true }
