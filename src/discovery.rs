@@ -1,9 +1,10 @@
 use std::{
-    collections::{hash_map, HashMap},
     fmt::{Debug, Display},
     ops::{Bound, ControlFlow},
     sync::Arc,
 };
+
+use dashmap::DashMap;
 
 #[cfg(feature = "discovery-docker")]
 mod docker;
@@ -71,25 +72,25 @@ impl Display for HostnameExistsError {
 
 #[derive(Default, Debug)]
 struct DiscoveredServers {
-    active_servers: HashMap<ServerId, ActiveServer>,
+    active_servers: DashMap<ServerId, ActiveServer>,
 
-    hostname_index: HashMap<Arc<str>, ServerId>,
+    hostname_index: DashMap<Arc<str>, ServerId>,
 }
 
 impl DiscoveredServers {
-    fn insert(&mut self, id: ServerId, server: ActiveServer) -> Result<(), ServerInsertionError> {
+    fn insert(&self, id: ServerId, server: ActiveServer) -> Result<(), ServerInsertionError> {
         let vacant_entry = match self.active_servers.entry(id) {
-            hash_map::Entry::Occupied(_) => return Err(ServerInsertionError::ServerIdExists),
-            hash_map::Entry::Vacant(vacant) => vacant,
+            dashmap::Entry::Occupied(_) => return Err(ServerInsertionError::ServerIdExists),
+            dashmap::Entry::Vacant(vacant) => vacant,
         };
 
-        let mut add_hostnames = || {
+        let add_hostnames = || {
             for (index, hostname) in server.hostnames.iter().cloned().enumerate() {
                 match self.hostname_index.entry(hostname) {
-                    hash_map::Entry::Occupied(_) => {
+                    dashmap::Entry::Occupied(_) => {
                         return ControlFlow::Break(index);
                     }
-                    hash_map::Entry::Vacant(empty) => empty.insert(id),
+                    dashmap::Entry::Vacant(empty) => empty.insert(id),
                 };
             }
             ControlFlow::Continue(())
@@ -110,15 +111,15 @@ impl DiscoveredServers {
         Ok(())
     }
 
-    fn remove(&mut self, id: ServerId) -> Option<ActiveServer> {
-        let server = self.active_servers.remove(&id)?;
+    fn remove(&self, id: ServerId) -> Option<ActiveServer> {
+        let (id, server) = self.active_servers.remove(&id)?;
 
         self.drop_index(&server, None);
 
         Some(server)
     }
 
-    fn drop_index(&mut self, server: &ActiveServer, until: Option<usize>) {
+    fn drop_index(&self, server: &ActiveServer, until: Option<usize>) {
         let range = match until {
             Some(until) => (Bound::Unbounded, Bound::Excluded(until)),
             None => (Bound::Unbounded, Bound::Unbounded),
