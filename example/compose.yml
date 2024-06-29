@@ -20,4 +20,6 @@ services:
     volumes:
       - ./pack.png:/data/server-icon.png:ro
     labels:
-      - mcproxy
+      mcproxy: mcproxy.dusterthefirst.com
+      mcproxy.replica_behavior: index-subdomain
+      mcproxy.port: bound

@@ -21,10 +21,12 @@ use crate::config::Config;
 use crate::proxy_server::ProxyServer;
 
 pub mod config;
-pub mod discovery;
 pub mod proto;
 pub mod proxy_server;
 pub mod trace;
+
+#[cfg(feature = "discovery")]
+pub mod discovery;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -36,8 +38,8 @@ async fn main() -> eyre::Result<()> {
     let config = config::load_and_watch("./example/config.toml".into()).await?;
     let current_config = config.borrow().clone();
 
-    #[cfg(feature = "discovery-docker")]
-    discovery::docker().await;
+    #[cfg(feature = "discovery")]
+    discovery::begin().await;
 
     let listener = TcpListener::bind(current_config.proxy.listen_address)
         .await

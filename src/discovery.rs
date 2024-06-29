@@ -1,89 +1,142 @@
+use std::{
+    collections::{hash_map, HashMap},
+    fmt::{Debug, Display},
+    ops::{Bound, ControlFlow},
+    sync::Arc,
+};
+
 #[cfg(feature = "discovery-docker")]
-pub async fn docker() {
-    use std::collections::HashMap;
+mod docker;
 
-    use bollard::{
-        container::ListContainersOptions,
-        secret::{EventActor, EventMessage, EventMessageScopeEnum, EventMessageTypeEnum},
-        system::EventsOptions,
-    };
-    use eyre::Context;
-    use tokio::task;
-    use tokio_stream::StreamExt;
-    use tracing::{error, info, warn};
+#[derive(Debug)]
+struct ActiveServer {
+    hostnames: Vec<Arc<str>>,
+    port: u16,
+}
 
-    task::spawn(async {
-        info!("docker discovery enabled");
-        match inner().await {
-            Ok(()) => warn!("docker discovery exited early"),
-            Err(error) => error!(%error, "docker discovery encountered an error"),
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+enum ServerId {
+    #[cfg(feature = "discovery-docker")]
+    Docker(docker::ContainerId),
+}
+
+impl Debug for ServerId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl Display for ServerId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            #[cfg(feature = "discovery-docker")]
+            Self::Docker(id) => write!(f, "docker:{id}"),
         }
-    });
+    }
+}
 
-    async fn inner() -> Result<(), eyre::Report> {
-        let docker = bollard::Docker::connect_with_defaults()
-            .wrap_err("failed to connect to docker socket")?;
+enum ServerInsertionError {
+    ServerIdExists,
+    HostnameExists(HostnameExistsError),
+}
 
-        let current_containers = match docker
-            .list_containers(Some(ListContainersOptions {
-                filters: HashMap::from_iter([("label", vec!["mcproxy"])]),
-                ..Default::default()
-            }))
-            .await
-        {
-            Ok(containers) => containers,
-            Err(error) => {
-                warn!(%error, "could not list running containers");
+impl Display for ServerInsertionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ServerInsertionError::ServerIdExists => write!(f, "server id already exists"),
+            ServerInsertionError::HostnameExists(error) => Display::fmt(error, f),
+        }
+    }
+}
 
-                vec![]
-            }
+struct HostnameExistsError {
+    hostname: Arc<str>,
+    server: ActiveServer,
+}
+impl HostnameExistsError {
+    pub fn hostname(&self) -> &str {
+        &self.hostname
+    }
+
+    pub fn server(&self) -> &ActiveServer {
+        &self.server
+    }
+}
+
+impl Display for HostnameExistsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "hostname {} already mapped", self.hostname)
+    }
+}
+
+#[derive(Default, Debug)]
+struct DiscoveredServers {
+    active_servers: HashMap<ServerId, ActiveServer>,
+
+    hostname_index: HashMap<Arc<str>, ServerId>,
+}
+
+impl DiscoveredServers {
+    fn insert(&mut self, id: ServerId, server: ActiveServer) -> Result<(), ServerInsertionError> {
+        let vacant_entry = match self.active_servers.entry(id) {
+            hash_map::Entry::Occupied(_) => return Err(ServerInsertionError::ServerIdExists),
+            hash_map::Entry::Vacant(vacant) => vacant,
         };
 
-        dbg!(current_containers);
-
-        //  INDEXES
-        // Map container_id => metadata
-        // let active_servers_by_container = HashMap::new();
-        // Map host_name => metadata
-        // let active_servers_by_host_name = HashMap::new();
-
-        let mut events = docker.events(Some(EventsOptions::<&str> {
-            filters: HashMap::from_iter([
-                ("type", vec!["container"]),
-                ("event", vec!["start", "stop"]),
-                ("label", vec!["mcproxy"]),
-            ]),
-            ..Default::default()
-        }));
-
-        while let Some(event) = events.next().await {
-            match event {
-                Ok(EventMessage {
-                    typ: Some(EventMessageTypeEnum::CONTAINER),
-                    action: Some(action),
-                    actor:
-                        Some(EventActor {
-                            id: Some(id),
-                            attributes: Some(attributes),
-                        }),
-                    scope: Some(EventMessageScopeEnum::LOCAL),
-                    time,
-                    time_nano,
-                }) => {
-                    info!(?action, ?time, ?time_nano, ?id);
-
-                    dbg!(attributes.get("name"));
-                    dbg!(attributes.get("com.docker.compose.container-number"));
-                    dbg!(attributes.get("com.docker.compose.service"));
-                    dbg!(attributes.get("com.docker.compose.project"));
-                }
-                Ok(message) => {
-                    warn!(?message, "incomplete response from docker daemon");
-                }
-                Err(error) => error!(%error, "encountered error reading from docker daemon"),
+        let mut add_hostnames = || {
+            for (index, hostname) in server.hostnames.iter().cloned().enumerate() {
+                match self.hostname_index.entry(hostname) {
+                    hash_map::Entry::Occupied(_) => {
+                        return ControlFlow::Break(index);
+                    }
+                    hash_map::Entry::Vacant(empty) => empty.insert(id),
+                };
             }
+            ControlFlow::Continue(())
+        };
+
+        if let ControlFlow::Break(conflict_index) = add_hostnames() {
+            // Undo addition when error encountered
+            self.drop_index(&server, Some(conflict_index));
+
+            return Err(ServerInsertionError::HostnameExists(HostnameExistsError {
+                hostname: server.hostnames[conflict_index].clone(),
+                server,
+            }));
         }
+
+        vacant_entry.insert(server);
 
         Ok(())
     }
+
+    fn remove(&mut self, id: ServerId) -> Option<ActiveServer> {
+        let server = self.active_servers.remove(&id)?;
+
+        self.drop_index(&server, None);
+
+        Some(server)
+    }
+
+    fn drop_index(&mut self, server: &ActiveServer, until: Option<usize>) {
+        let range = match until {
+            Some(until) => (Bound::Unbounded, Bound::Excluded(until)),
+            None => (Bound::Unbounded, Bound::Unbounded),
+        };
+
+        for hostname in &server.hostnames[range] {
+            self.hostname_index.remove(hostname);
+        }
+    }
+}
+
+pub async fn begin() {
+    #[cfg(feature = "discovery-docker")]
+    tokio::task::spawn(async {
+        tracing::info!("docker discovery enabled");
+        match docker::docker().await {
+            Ok(()) => tracing::warn!("docker discovery exited early"),
+            Err(error) => tracing::error!(%error, "docker discovery encountered an error"),
+        }
+    });
 }
