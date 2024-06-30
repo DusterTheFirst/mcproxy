@@ -132,9 +132,10 @@ impl DiscoveredServers {
 }
 
 pub async fn begin() {
+    tracing::info!("starting discovery services");
+
     #[cfg(feature = "discovery-docker")]
     tokio::task::spawn(async {
-        tracing::info!("docker discovery enabled");
         match docker::docker().await {
             Ok(()) => tracing::warn!("docker discovery exited early"),
             Err(error) => tracing::error!(%error, "docker discovery encountered an error"),

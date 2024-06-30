@@ -28,11 +28,14 @@ pub mod trace;
 #[cfg(feature = "discovery")]
 pub mod discovery;
 
+// TODO: FIXME: make better
+include!(concat!(env!("OUT_DIR"), "/features.rs"));
+
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     init_tracing_subscriber();
 
-    info!("proxy starting");
+    info!(features=?ENABLED_FEATURES, "proxy starting");
 
     // TODO: command line options
     let config = config::load_and_watch("./example/config.toml".into()).await?;

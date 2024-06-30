@@ -130,6 +130,8 @@ fn gather_server_information(mut labels: HashMap<String, String>) -> Option<Acti
 }
 
 pub async fn docker() -> Result<(), eyre::Report> {
+    tracing::info!("docker discovery started");
+
     let docker =
         bollard::Docker::connect_with_defaults().wrap_err("failed to connect to docker socket")?;
 
