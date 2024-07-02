@@ -22,4 +22,4 @@ services:
     labels:
       mcproxy: mcproxy.dusterthefirst.com
       mcproxy.replica_behavior: index-subdomain
-      mcproxy.port: bound
+      # mcproxy.port: 25565

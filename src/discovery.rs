@@ -1,5 +1,6 @@
 use std::{
     fmt::{Debug, Display},
+    net::SocketAddr,
     ops::{Bound, ControlFlow},
     sync::Arc,
 };
@@ -10,13 +11,14 @@ use dashmap::DashMap;
 mod docker;
 
 #[derive(Debug)]
-struct ActiveServer {
+pub struct ActiveServer {
     hostnames: Vec<Arc<str>>,
-    port: u16,
+
+    upstream: SocketAddr,
 }
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-enum ServerId {
+pub enum ServerId {
     #[cfg(feature = "discovery-docker")]
     Docker(docker::ContainerId),
 }
@@ -71,13 +73,30 @@ impl Display for HostnameExistsError {
 }
 
 #[derive(Default, Debug)]
-struct DiscoveredServers {
+pub struct DiscoveredServers {
     active_servers: DashMap<ServerId, ActiveServer>,
 
     hostname_index: DashMap<Arc<str>, ServerId>,
 }
 
 impl DiscoveredServers {
+    pub fn get_by_hostname(
+        &self,
+        hostname: &str,
+    ) -> Option<dashmap::mapref::one::Ref<ServerId, ActiveServer>> {
+        self.hostname_index
+            .get(hostname)
+            .and_then(|id| self.active_servers.get(&*id))
+    }
+
+    pub fn len(&self) -> usize {
+        self.active_servers.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.active_servers.is_empty()
+    }
+
     fn insert(&self, id: ServerId, server: ActiveServer) -> Result<(), ServerInsertionError> {
         let vacant_entry = match self.active_servers.entry(id) {
             dashmap::Entry::Occupied(_) => return Err(ServerInsertionError::ServerIdExists),
@@ -131,14 +150,22 @@ impl DiscoveredServers {
     }
 }
 
-pub async fn begin() {
+pub async fn begin() -> Arc<DiscoveredServers> {
     tracing::info!("starting discovery services");
 
+    let discovered_servers = Arc::new(DiscoveredServers::default());
+
     #[cfg(feature = "discovery-docker")]
-    tokio::task::spawn(async {
-        match docker::docker().await {
-            Ok(()) => tracing::warn!("docker discovery exited early"),
-            Err(error) => tracing::error!(%error, "docker discovery encountered an error"),
+    tokio::task::spawn({
+        let discovered_servers = discovered_servers.clone();
+
+        async move {
+            match docker::docker(discovered_servers).await {
+                Ok(()) => tracing::warn!("docker discovery exited early"),
+                Err(error) => tracing::error!(%error, "docker discovery encountered an error"),
+            }
         }
     });
+
+    discovered_servers
 }

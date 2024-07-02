@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     str::FromStr,
     sync::Arc,
 };
@@ -8,7 +9,8 @@ use std::{
 use bollard::{
     container::ListContainersOptions,
     secret::{
-        ContainerSummary, EventActor, EventMessage, EventMessageScopeEnum, EventMessageTypeEnum,
+        ContainerSummary, ContainerSummaryNetworkSettings, EventActor, EventMessage,
+        EventMessageScopeEnum, EventMessageTypeEnum,
     },
     system::EventsOptions,
 };
@@ -44,6 +46,14 @@ enum ReplicaBehavior {
 }
 
 struct InvalidReplicaBehaviorError;
+impl Display for InvalidReplicaBehaviorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "unknown replica behavior. known values include: index-subdomain"
+        )
+    }
+}
 
 impl FromStr for ReplicaBehavior {
     type Err = InvalidReplicaBehaviorError;
@@ -89,22 +99,31 @@ impl FromStr for ContainerId {
     }
 }
 
-fn gather_server_information(mut labels: HashMap<String, String>) -> Option<ActiveServer> {
-    let replica_behavior =
-        labels.get("mcproxy.replica_behavior").and_then(
-            |behavior| match ReplicaBehavior::from_str(behavior) {
-                Ok(behavior) => Some(behavior),
-                Err(InvalidReplicaBehaviorError) => {
-                    error!(
-                        label_name = "mcproxy.replica_behavior",
-                        label_value = behavior,
-                        "invalid value provided in container labels"
-                    );
+fn extract_label<T>(labels: &HashMap<String, String>, key: &str) -> Option<T>
+where
+    T: FromStr,
+    <T as FromStr>::Err: Display,
+{
+    labels.get(key).and_then(|value| match T::from_str(value) {
+        Ok(value) => Some(value),
+        Err(error) => {
+            error!(
+                label_name = key,
+                label_value = value,
+                error = %error,
+                "invalid value provided in container labels"
+            );
 
-                    None
-                }
-            },
-        );
+            None
+        }
+    })
+}
+
+fn gather_server_information(
+    ip: IpAddr,
+    mut labels: HashMap<String, String>,
+) -> Option<ActiveServer> {
+    let replica_behavior = extract_label(&labels, "mcproxy.replica_behavior");
 
     if let Some(hostname) = labels.remove("mcproxy") {
         let hostname = match replica_behavior.zip(labels.get("com.docker.compose.container-number"))
@@ -115,9 +134,11 @@ fn gather_server_information(mut labels: HashMap<String, String>) -> Option<Acti
             None => Arc::from(hostname),
         };
 
+        let port = extract_label(&labels, "mcproxy.port");
+
         Some(ActiveServer {
             hostnames: vec![hostname],
-            port: 0,
+            upstream: SocketAddr::new(ip, port.unwrap_or(25565)),
         })
     } else {
         warn!(
@@ -129,7 +150,7 @@ fn gather_server_information(mut labels: HashMap<String, String>) -> Option<Acti
     }
 }
 
-pub async fn docker() -> Result<(), eyre::Report> {
+pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), eyre::Report> {
     tracing::info!("docker discovery started");
 
     let docker =
@@ -150,7 +171,7 @@ pub async fn docker() -> Result<(), eyre::Report> {
         }
     };
 
-    // dbg!(&current_containers);
+    dbg!(&current_containers);
 
     let current_active_servers =
             current_containers
@@ -160,23 +181,30 @@ pub async fn docker() -> Result<(), eyre::Report> {
                         id: Some(id),
                         ports: Some(ports),
                         labels: Some(labels),
+                        network_settings: Some(ContainerSummaryNetworkSettings { networks: Some(networks) }),
                         ..
                     } => {
+                        // FIXME: smarter network selection.... Use docker networks
+                        let ip = networks.iter().next().and_then(|(network_name, endpoint_settings)| {
+                            endpoint_settings.ip_address.as_ref()
+                        }).and_then(|ip| IpAddr::from_str(ip).inspect_err(|err| error!(
+                            error = %err,
+                            "invalid ip address returned from docker daemon"
+                        )).ok()).unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+
                         // dbg!(ports);
                         // dbg!(labels.get("mcproxy.port"));
                         let container_id = ContainerId::from_str(&id)
                         .inspect_err(|error| warn!(%error, "container id malformed"))
                         .ok()?;
 
-                        gather_server_information(labels).map(|server| (container_id, server))
+                        gather_server_information(ip, labels).map(|server| (container_id, server))
                     }
                     container => {
                         warn!(?container.id, container.ports.exists = container.ports.is_some(), container.labels.exists = container.labels.is_some(), "container listing contained incomplete information");
                         None
                     }
                 });
-
-    let mut discovered_servers = DiscoveredServers::default();
 
     for (container, server) in current_active_servers {
         match discovered_servers.insert(ServerId::Docker(container), server) {
@@ -195,6 +223,11 @@ pub async fn docker() -> Result<(), eyre::Report> {
     }
 
     dbg!(&discovered_servers);
+
+    info!(
+        count = discovered_servers.len(),
+        "discovered running docker servers"
+    );
 
     let mut events = docker.events(Some(EventsOptions::<&str> {
         filters: HashMap::from_iter([
@@ -237,7 +270,10 @@ pub async fn docker() -> Result<(), eyre::Report> {
 
                 match action.as_str() {
                     "start" => {
-                        if let Some(server) = gather_server_information(attributes) {
+                        if let Some(server) = gather_server_information(
+                            IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+                            attributes,
+                        ) {
                             debug!(%id, "inserting discovered server mapping");
                             if let Err(error) =
                                 discovered_servers.insert(ServerId::Docker(id), server)
