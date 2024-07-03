@@ -41,13 +41,16 @@ async fn load_toml<T: DeserializeOwned>(path: &Path) -> Result<T, TracedError<io
 
 /// Convert the favicon from a URL to the rendered base64 data
 #[tracing::instrument(name = "config::load_favicon")]
-async fn load_favicon(response: StatusResponse) -> Result<StatusResponse, TracedError<io::Error>> {
+async fn load_favicon(
+    working_directory: &Path,
+    response: StatusResponse,
+) -> Result<StatusResponse, TracedError<io::Error>> {
     Ok(StatusResponse {
         favicon: if let Some(favicon) = response.favicon {
             Some(format!(
                 "data:image/png;base64,{}",
                 base64::prelude::BASE64_STANDARD.encode(
-                    &fs::read(favicon)
+                    &fs::read(working_directory.join(favicon))
                         .instrument(trace_span!("fs::read"))
                         .await
                         .map_err(InstrumentError::in_current_span)?
@@ -62,7 +65,16 @@ async fn load_favicon(response: StatusResponse) -> Result<StatusResponse, Traced
 
 #[tracing::instrument(name = "config::load")]
 pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
-    let raw = load_toml::<GenericConfig<Raw>>(path).await?;
+    let current_directory = std::env::current_dir().map_err(InstrumentError::in_current_span)?;
+    let config_file = current_directory
+        .join(path)
+        .canonicalize()
+        .map_err(InstrumentError::in_current_span)?;
+    let config_directory = config_file
+        .parent()
+        .expect("at this point, path should have a parent");
+
+    let raw = load_toml::<GenericConfig<Raw>>(&config_file).await?;
 
     Ok(Config {
         discovery: raw.discovery,
@@ -72,11 +84,29 @@ pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
         placeholder_server: PlaceholderServerConfig {
             responses: PlaceholderServerResponses {
                 offline: match &raw.placeholder_server.responses.offline {
-                    Some(path) => Some(load_favicon(load_toml(path).await?).await?),
+                    Some(path) => {
+                        let config_file = config_directory
+                            .join(path)
+                            .canonicalize()
+                            .map_err(InstrumentError::in_current_span)?;
+                        let config_directory =
+                            config_file.parent().expect("path should have a parent");
+
+                        Some(load_favicon(config_directory, load_toml(&config_file).await?).await?)
+                    }
                     None => None,
                 },
                 no_mapping: match &raw.placeholder_server.responses.no_mapping {
-                    Some(path) => Some(load_favicon(load_toml(path).await?).await?),
+                    Some(path) => {
+                        let config_file = config_directory
+                            .join(path)
+                            .canonicalize()
+                            .map_err(InstrumentError::in_current_span)?;
+                        let config_directory =
+                            config_file.parent().expect("path should have a parent");
+
+                        Some(load_favicon(config_directory, load_toml(&config_file).await?).await?)
+                    }
                     None => None,
                 },
             },

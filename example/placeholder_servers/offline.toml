@@ -1,7 +1,7 @@
 "$schema" = "../../target/schema/response.schema.json"
 
 # The favicon to show
-favicon = "./example/BarrierNew.png"
+favicon = "../BarrierNew.png"
 
 # The version to broadcast to the querying server
 [version]

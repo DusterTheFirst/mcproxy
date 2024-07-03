@@ -63,6 +63,7 @@ async fn main() -> eyre::Result<()> {
             Ok((mut client_stream, address)) => {
                 // Clone pointers to the address map and server responses
                 let config = config.borrow().clone();
+                #[cfg(feature = "discovery")]
                 let discovered_servers = discovered_servers.clone(); // TODO:
 
                 // Get the connection id
