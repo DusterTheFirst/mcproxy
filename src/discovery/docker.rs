@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
 };
@@ -171,7 +171,7 @@ pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), ey
         }
     };
 
-    dbg!(&current_containers);
+    // dbg!(&current_containers);
 
     let current_active_servers =
             current_containers
@@ -222,7 +222,7 @@ pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), ey
         };
     }
 
-    dbg!(&discovered_servers);
+    // dbg!(&discovered_servers);
 
     info!(
         count = discovered_servers.len(),
@@ -271,16 +271,15 @@ pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), ey
                 match action.as_str() {
                     "start" => {
                         let ip =
-                            match dbg!(
-                                docker
-                                    .inspect_container(
-                                        &id.to_string(),
-                                        Some(InspectContainerOptions {
-                                            ..Default::default()
-                                        }),
-                                    )
-                                    .await
-                            ) {
+                            match docker
+                                .inspect_container(
+                                    &id.to_string(),
+                                    Some(InspectContainerOptions {
+                                        ..Default::default()
+                                    }),
+                                )
+                                .await
+                            {
                                 Ok(ContainerInspectResponse {
                                     network_settings:
                                         Some(NetworkSettings {
@@ -341,7 +340,7 @@ pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), ey
                     _ => warn!(action, "unknown action received"),
                 }
 
-                dbg!(&discovered_servers);
+                // dbg!(&discovered_servers);
             }
             Ok(message) => {
                 warn!(?message, "incomplete response from docker daemon");

@@ -158,7 +158,7 @@ const PING_TIMEOUT: Duration = Duration::from_millis(300);
 macro_rules! timeout_break {
     ($timeout:ident, $response:expr) => {
         match timeout($timeout, $response).await {
-            Ok(Ok(())) => return Ok(ControlFlow::Break(())),
+            Ok(Ok(result)) => result,
             Ok(Err(error)) => return Err(error),
             Err(_) => {
                 debug!("timeout exceeded");
@@ -179,7 +179,7 @@ async fn handle_connection(
     trace!("new connection");
 
     // First, the client sends a Handshake packet with its state set to 1.
-    let (handshake, handshake_packet) = read_handshake(client_stream).await?;
+    let (handshake, handshake_packet) = timeout_break!(PING_TIMEOUT, read_handshake(client_stream));
     debug!(
         address = handshake.address,
         port = handshake.port,
@@ -214,6 +214,7 @@ async fn handle_connection(
                             config.placeholder_server.responses.no_mapping.as_ref()
                         )
                     );
+                    return Ok(ControlFlow::Break(()));
                 }
                 proto::NextState::Login => {
                     timeout_break!(
@@ -223,6 +224,7 @@ async fn handle_connection(
                             config.placeholder_server.responses.no_mapping.as_ref()
                         )
                     );
+                    return Ok(ControlFlow::Break(()));
                 }
                 proto::NextState::Transfer => {
                     error!("unimplemented");
@@ -257,6 +259,7 @@ async fn handle_connection(
                             config.placeholder_server.responses.offline.as_ref()
                         )
                     );
+                    return Ok(ControlFlow::Break(()));
                 }
                 proto::NextState::Login => {
                     timeout_break!(
@@ -266,6 +269,7 @@ async fn handle_connection(
                             config.placeholder_server.responses.offline.as_ref()
                         )
                     );
+                    return Ok(ControlFlow::Break(()));
                 }
                 proto::NextState::Transfer => {
                     error!("unimplemented");

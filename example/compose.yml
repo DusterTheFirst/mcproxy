@@ -8,9 +8,22 @@ services:
       - .:/config
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
+      # Minecraft
       - 25565:25565
-    # environment:
+      # Tokio-console
+      - 6669:6669
+    environment:
+      TOKIO_CONSOLE_BIND: "0.0.0.0:6669"
+      # OTLP_ENDPOINT: jaeger
       # - RUST_LOG=mcproxy=trace
+    # depends_on:
+    #   - jaeger
+
+  # jaeger:
+  #   image: jaegertracing/all-in-one:1.58
+  #   ports:
+  #     - 4317:4317
+  #     - 16686:16686
 
   mc:
     image: itzg/minecraft-server:java21-alpine
@@ -25,8 +38,6 @@ services:
           memory: 1G
     tty: true
     stdin_open: true
-    # ports:
-    #   - "25570-25575:25565"
     environment:
       EULA: "TRUE"
       TYPE: "paper"
