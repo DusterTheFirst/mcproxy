@@ -6,7 +6,7 @@ use proto::{
     response::StatusResponse,
     string, Handshake,
 };
-use std::{ops::ControlFlow, sync::Arc, time::Duration};
+use std::{ops::ControlFlow, path::PathBuf, sync::Arc, time::Duration};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -37,8 +37,19 @@ async fn main() -> eyre::Result<()> {
 
     info!(features=?ENABLED_FEATURES, "proxy starting");
 
+    let mut args = std::env::args_os();
+    let executable_name = args
+        .next()
+        .expect("first argument should be name of executable");
+    let config_file = args
+        .next()
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("./example/config.toml"));
+
     // TODO: command line options
-    let config = config::load_and_watch("./example/config.toml".into()).await?;
+    info!("loading config file");
+    let config = config::load_and_watch(config_file).await?;
     let current_config = config.borrow().clone();
 
     #[cfg(feature = "discovery")]
@@ -55,12 +66,39 @@ async fn main() -> eyre::Result<()> {
 
     drop(current_config);
 
+    #[cfg(feature = "pid1")]
+    task::spawn(async {
+        use tokio::signal::unix::{signal, SignalKind};
+
+        let mut alarm = signal(SignalKind::alarm()).unwrap();
+        let mut hangup = signal(SignalKind::hangup()).unwrap();
+        let mut interrupt = signal(SignalKind::interrupt()).unwrap();
+        let mut pipe = signal(SignalKind::pipe()).unwrap();
+        let mut quit = signal(SignalKind::quit()).unwrap();
+        let mut terminate = signal(SignalKind::terminate()).unwrap();
+        let mut user_defined1 = signal(SignalKind::user_defined1()).unwrap();
+        let mut user_defined2 = signal(SignalKind::user_defined2()).unwrap();
+
+        tokio::select! {
+            _ = alarm.recv() => info!("alarm"),
+            _ = hangup.recv() => info!("hangup"),
+            _ = interrupt.recv() => info!("interrupt"),
+            _ = pipe.recv() => info!("pipe"),
+            _ = quit.recv() => info!("quit"),
+            _ = terminate.recv() => info!("terminate"),
+            _ = user_defined1.recv() => info!("user_defined1"),
+            _ = user_defined2.recv() => info!("user_defined2"),
+        }
+
+        std::process::exit(0);
+    });
+
     // Accept connections as they come in
     loop {
         let stream = listener.accept().await;
 
         match stream {
-            Ok((mut client_stream, address)) => {
+            Ok((mut client_stream, _address)) => {
                 // Clone pointers to the address map and server responses
                 let config = config.borrow().clone();
                 #[cfg(feature = "discovery")]
@@ -72,7 +110,15 @@ async fn main() -> eyre::Result<()> {
                 // Fork off the connection handling
                 let task = async move {
                     // Handle the connection
-                    match handle_connection(connection_id, config, &mut client_stream).await {
+                    match handle_connection(
+                        connection_id,
+                        config,
+                        #[cfg(feature = "discovery")]
+                        discovered_servers,
+                        &mut client_stream,
+                    )
+                    .await
+                    {
                         Ok(ControlFlow::Continue((server_stream, handshake))) => {
                             // Spin up constant proxy until the connection is complete
                             ProxyServer::new(server_stream, client_stream)
@@ -122,10 +168,11 @@ macro_rules! timeout_break {
     };
 }
 
-#[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty))]
+#[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty, upstream=field::Empty))]
 async fn handle_connection(
     connection_id: u16,
     config: Arc<Config>,
+    #[cfg(feature = "discovery")] discovered_servers: Arc<discovery::DiscoveredServers>,
     client_stream: &mut TcpStream,
 ) -> Result<ControlFlow<(), (TcpStream, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
@@ -144,7 +191,16 @@ async fn handle_connection(
     Span::current().record("next_state", handshake.next_state.to_string());
 
     // Handle mapping
-    let address = match config.static_servers.get(&handshake.address) {
+    let upstream = config.static_servers.get(&handshake.address).copied();
+
+    #[cfg(feature = "discovery")]
+    let upstream = upstream.or_else(|| {
+        discovered_servers
+            .get_by_hostname(&handshake.address)
+            .map(|server| server.upstream())
+    });
+
+    let upstream = match upstream {
         Some(a) => a,
         None => {
             warn!("unknown address");
@@ -179,8 +235,9 @@ async fn handle_connection(
             }
         }
     };
+    Span::current().record("upstream", upstream.to_string());
 
-    let mut server_stream = match TcpStream::connect(address)
+    let mut server_stream = match TcpStream::connect(upstream)
         .instrument(trace_span!("connect_upstream"))
         .await
     {

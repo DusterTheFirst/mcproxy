@@ -7,10 +7,10 @@ use std::{
 };
 
 use bollard::{
-    container::ListContainersOptions,
+    container::{InspectContainerOptions, ListContainersOptions},
     secret::{
-        ContainerSummary, ContainerSummaryNetworkSettings, EventActor, EventMessage,
-        EventMessageScopeEnum, EventMessageTypeEnum,
+        ContainerInspectResponse, ContainerSummary, ContainerSummaryNetworkSettings, EventActor,
+        EventMessage, EventMessageScopeEnum, EventMessageTypeEnum, NetworkSettings,
     },
     system::EventsOptions,
 };
@@ -184,13 +184,13 @@ pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), ey
                         network_settings: Some(ContainerSummaryNetworkSettings { networks: Some(networks) }),
                         ..
                     } => {
-                        // FIXME: smarter network selection.... Use docker networks
+                        // FIXME: smarter network selection.... Use docker networks, also error handling is a mess here
                         let ip = networks.iter().next().and_then(|(network_name, endpoint_settings)| {
                             endpoint_settings.ip_address.as_ref()
                         }).and_then(|ip| IpAddr::from_str(ip).inspect_err(|err| error!(
                             error = %err,
                             "invalid ip address returned from docker daemon"
-                        )).ok()).unwrap_or(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+                        )).ok())?;
 
                         // dbg!(ports);
                         // dbg!(labels.get("mcproxy.port"));
@@ -270,18 +270,68 @@ pub async fn docker(discovered_servers: Arc<DiscoveredServers>) -> Result<(), ey
 
                 match action.as_str() {
                     "start" => {
-                        if let Some(server) = gather_server_information(
-                            IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-                            attributes,
-                        ) {
+                        let ip =
+                            match dbg!(
+                                docker
+                                    .inspect_container(
+                                        &id.to_string(),
+                                        Some(InspectContainerOptions {
+                                            ..Default::default()
+                                        }),
+                                    )
+                                    .await
+                            ) {
+                                Ok(ContainerInspectResponse {
+                                    network_settings:
+                                        Some(NetworkSettings {
+                                            networks: Some(networks),
+                                            ..
+                                        }),
+                                    ..
+                                }) => {
+                                    // FIXME: smarter network selection.... Use docker networks, also error handling is a mess here
+                                    networks
+                                        .iter()
+                                        .next()
+                                        .and_then(|(network_name, endpoint_settings)| {
+                                            endpoint_settings.ip_address.as_ref()
+                                        })
+                                        .and_then(|ip| {
+                                            IpAddr::from_str(ip).inspect_err(|err| error!(
+                                                error = %err,
+                                                "invalid ip address returned from docker daemon"
+                                            )).ok()
+                                        })
+                                }
+                                Ok(message) => {
+                                    warn!(%id, ?message, "incomplete response from docker daemon");
+                                    continue;
+                                }
+                                Err(error) => {
+                                    warn!(%id, %error, "failed to inspect container");
+                                    continue;
+                                }
+                            };
+
+                        let ip = match ip {
+                            Some(ip) => ip,
+                            None => {
+                                warn!("failed to determine container ip address");
+                                continue;
+                            }
+                        };
+
+                        if let Some(server) = gather_server_information(ip, attributes) {
                             debug!(%id, "inserting discovered server mapping");
                             if let Err(error) =
                                 discovered_servers.insert(ServerId::Docker(id), server)
                             {
                                 error!(%error, "failed to record discovered server");
+                                continue;
                             }
                         } else {
-                            warn!("container metadata did not exist")
+                            warn!("container metadata did not exist");
+                            continue;
                         }
                     }
                     "stop" => {

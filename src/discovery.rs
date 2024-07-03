@@ -17,6 +17,12 @@ pub struct ActiveServer {
     upstream: SocketAddr,
 }
 
+impl ActiveServer {
+    pub fn upstream(&self) -> SocketAddr {
+        self.upstream
+    }
+}
+
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum ServerId {
     #[cfg(feature = "discovery-docker")]
@@ -54,15 +60,10 @@ impl Display for ServerInsertionError {
 
 struct HostnameExistsError {
     hostname: Arc<str>,
-    server: ActiveServer,
 }
 impl HostnameExistsError {
     pub fn hostname(&self) -> &str {
         &self.hostname
-    }
-
-    pub fn server(&self) -> &ActiveServer {
-        &self.server
     }
 }
 
@@ -121,7 +122,6 @@ impl DiscoveredServers {
 
             return Err(ServerInsertionError::HostnameExists(HostnameExistsError {
                 hostname: server.hostnames[conflict_index].clone(),
-                server,
             }));
         }
 

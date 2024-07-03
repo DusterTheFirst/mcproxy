@@ -1,3 +1,5 @@
+use tracing::level_filters::LevelFilter;
+
 // Create a Resource that captures information about the entity for which telemetry is recorded.
 #[cfg(feature = "telemetry")]
 pub fn resource() -> opentelemetry_sdk::Resource {
@@ -61,8 +63,11 @@ pub fn init_tracing_subscriber() {
     tracing_subscriber::Registry::default()
         .with(tracing_error::ErrorLayer::default())
         .with(
-            tracing_subscriber::fmt::layer()
-                .with_filter(tracing_subscriber::EnvFilter::from_default_env()),
+            tracing_subscriber::fmt::layer().with_filter(
+                tracing_subscriber::EnvFilter::builder()
+                    .with_default_directive(LevelFilter::INFO.into())
+                    .from_env_lossy(),
+            ),
         )
         .with(console_layer)
         .with(telemetry_layer)

@@ -130,7 +130,7 @@ pub async fn load_and_watch(
 
             loop {
                 match socket.accept().await {
-                    Ok((mut stream, address)) => {
+                    Ok((mut stream, _address)) => {
                         let (reader, writer) = stream.split();
 
                         let reader = BufReader::new(reader);

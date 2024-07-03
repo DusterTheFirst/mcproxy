@@ -10,6 +10,9 @@ version = "0.1.0"
 lto = "thin"
 
 [features]
+# Enable signal handling when running as pid1
+pid1 = []
+
 # Discovery
 discovery        = []
 discovery-docker = ["dep:bollard", "dep:dashmap", "dep:tokio-stream", "discovery"]
