@@ -11,18 +11,28 @@ mod config;
 mod connection;
 mod proto;
 mod proxy_server;
-mod signals;
 mod trace;
-mod ui;
 
 #[cfg(feature = "discovery")]
 mod discovery;
+#[cfg(feature = "pid1")]
+mod signals;
+#[cfg(feature = "ui")]
+mod ui;
 
 // TODO: FIXME: make better
 include!(concat!(env!("OUT_DIR"), "/features.rs"));
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    eprintln!("{:#?}", std::env::vars().collect::<Vec<_>>());
+
+    #[cfg(feature = "autometrics")]
+    autometrics::settings::AutometricsSettings::builder()
+        .repo_url(env!("CARGO_PKG_REPOSITORY"))
+        .service_name(env!("CARGO_PKG_NAME"))
+        .init();
+
     init_tracing_subscriber();
 
     #[cfg(feature = "pid1")]
@@ -46,7 +56,11 @@ async fn main() -> eyre::Result<()> {
     let (config_sender, config) = tokio::sync::watch::channel(initial_config.clone());
     // let config = task::spawn(config::watch(config_file));
     if let Some(config) = initial_config.ui {
+        #[cfg(feature = "ui")]
         task::spawn(ui::listen(config, config_file, config_sender));
+
+        #[cfg(not(feature = "ui"))]
+        let _ = (config_sender, config);
     }
 
     #[cfg(feature = "discovery")]

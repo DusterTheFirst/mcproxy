@@ -11,6 +11,7 @@ pub mod response;
 
 /// Write a packet and output its data
 #[tracing::instrument(skip(stream, data), fields(len=data.len()), err)]
+#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn write_packet(
     stream: &mut TcpStream,
     id: i32,
@@ -35,10 +36,8 @@ pub async fn write_packet(
 
 /// Read a packet and output its data
 #[tracing::instrument(skip(stream), err)]
+#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn read_packet(stream: &mut TcpStream) -> Result<Packet, TracedError<io::Error>> {
-    // let header = [0; 10];
-    // self.peek
-
     let length = var_int::read(stream).await.in_current_span()?.value;
     let id = var_int::read(stream).await.in_current_span()?;
 
@@ -54,6 +53,7 @@ pub async fn read_packet(stream: &mut TcpStream) -> Result<Packet, TracedError<i
 
 /// Read the handshake packet in and return the data from it
 #[tracing::instrument(skip(stream), err)]
+#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn read_handshake(
     stream: &mut TcpStream,
 ) -> Result<(Handshake, Packet), TracedError<io::Error>> {
@@ -79,6 +79,7 @@ pub async fn read_handshake(
 }
 
 #[tracing::instrument(skip(stream), err)]
+#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedError<io::Error>> {
     let packet = read_packet(stream).await?;
     assert_eq!(packet.id, 0x01);
@@ -90,6 +91,7 @@ pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedErro
 }
 
 #[tracing::instrument(skip(stream), err)]
+#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn write_status_response(
     stream: &mut TcpStream,
     response: &StatusResponse,
@@ -100,6 +102,7 @@ pub async fn write_status_response(
 }
 
 #[tracing::instrument(skip(stream), err)]
+#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn write_pong_response(
     stream: &mut TcpStream,
     payload: i64,

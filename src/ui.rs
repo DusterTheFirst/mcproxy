@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use axum::{extract::State, http::StatusCode};
+use axum::{extract::State, http::StatusCode, routing::method_routing};
 use tokio::{
     io::{self},
     net::TcpListener,
@@ -28,9 +28,14 @@ pub async fn listen(
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .route(
             "/-/reload",
-            axum::routing::post(config_reload).with_state((sender, Arc::from(config_path))),
+            method_routing::post(config_reload).with_state((sender, Arc::from(config_path))),
+        )
+        .route(
+            "/metrics",
+            method_routing::get(|| async {
+                autometrics::prometheus_exporter::encode_http_response()
+            }),
         );
-        // .fallback(|| async { (StatusCode::NOT_FOUND, "Not Found") });
 
     let socket = TcpListener::bind(config.listen_address).await?;
 

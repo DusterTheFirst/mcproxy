@@ -1,0 +1,5 @@
+pushgateway-enabled = false
+prometheus-scrape-interval = "5s"
+
+[[endpoint]]
+url = "http://localhost:9876/metrics"

@@ -27,5 +27,9 @@ fn main() {
     // Write the generated code to a file
     fs::write(out_dir.join("features.rs"), feature_code).unwrap();
 
-    eprintln!("{out_dir:?}")
+    vergen::EmitBuilder::builder()
+        .git_sha(true)
+        .git_branch()
+        .emit()
+        .expect("Unable to generate build info");
 }
