@@ -7,6 +7,8 @@ use tracing_error::{InstrumentResult, TracedError};
 
 use crate::proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet};
 
+pub mod response;
+
 /// Write a packet and output its data
 #[tracing::instrument(skip(stream, data), fields(len=data.len()), err)]
 pub async fn write_packet(

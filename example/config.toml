@@ -1,7 +1,7 @@
 "$schema" = "../target/schema/config.schema.json"
 
-# [ui]
-# listen_address = "127.0.0.1:9876"
+[ui]
+listen_address = "127.0.0.1:9876"
 
 # [discovery.docker]
 # socket = "/var/run/docker.sock"

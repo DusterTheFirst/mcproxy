@@ -48,7 +48,7 @@ pub struct PlaceholderServerResponses<T: Marker> {
     pub no_mapping: Option<T::PointerType>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Copy)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct UiServerConfig {
     /// Address to bind the HTTP server to

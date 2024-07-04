@@ -1,32 +1,22 @@
-use proto::{
-    io::{
-        read_handshake, read_packet, read_ping_request, write_packet, write_pong_response,
-        write_status_response,
-    },
-    response::StatusResponse,
-    string, Handshake,
-};
-use std::{ops::ControlFlow, path::PathBuf, sync::Arc, time::Duration};
-use tokio::{
-    io::{self, AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
-    task,
-    time::timeout,
-};
+use config::schema::Config;
+use connection::handle_connection;
+use std::{ops::ControlFlow, path::PathBuf, sync::Arc};
+use tokio::{net::TcpListener, task};
 use trace::init_tracing_subscriber;
-use tracing::{debug, error, field, info, trace, trace_span, warn, Instrument, Span};
-use tracing_error::{InstrumentResult, TracedError};
+use tracing::{error, info, trace_span, Instrument};
 
-use crate::config::Config;
 use crate::proxy_server::ProxyServer;
 
-pub mod config;
-pub mod proto;
-pub mod proxy_server;
-pub mod trace;
+mod config;
+mod connection;
+mod proto;
+mod proxy_server;
+mod signals;
+mod trace;
+mod ui;
 
 #[cfg(feature = "discovery")]
-pub mod discovery;
+mod discovery;
 
 // TODO: FIXME: make better
 include!(concat!(env!("OUT_DIR"), "/features.rs"));
@@ -34,6 +24,9 @@ include!(concat!(env!("OUT_DIR"), "/features.rs"));
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     init_tracing_subscriber();
+
+    #[cfg(feature = "pid1")]
+    task::spawn(signals::handle_exit());
 
     info!(features=?ENABLED_FEATURES, "proxy starting");
 
@@ -49,49 +42,26 @@ async fn main() -> eyre::Result<()> {
 
     // TODO: command line options
     info!("loading config file");
-    let config = config::load_and_watch(config_file).await?;
-    let current_config = config.borrow().clone();
+    let initial_config: Arc<Config> = Arc::new(config::load(&config_file).await?);
+    let (config_sender, config) = tokio::sync::watch::channel(initial_config.clone());
+    // let config = task::spawn(config::watch(config_file));
+    if let Some(config) = initial_config.ui {
+        task::spawn(ui::listen(config, config_file, config_sender));
+    }
 
     #[cfg(feature = "discovery")]
     let discovered_servers = discovery::begin().await;
 
-    let listener = TcpListener::bind(current_config.proxy.listen_address)
+    let listener = TcpListener::bind(initial_config.proxy.listen_address)
         .await
         .expect("Unable to bind to socket");
 
     info!(
-        listen_address = %current_config.proxy.listen_address,
+        listen_address = %initial_config.proxy.listen_address,
         "proxy server listening",
     );
 
-    drop(current_config);
-
-    #[cfg(feature = "pid1")]
-    task::spawn(async {
-        use tokio::signal::unix::{signal, SignalKind};
-
-        let mut alarm = signal(SignalKind::alarm()).unwrap();
-        let mut hangup = signal(SignalKind::hangup()).unwrap();
-        let mut interrupt = signal(SignalKind::interrupt()).unwrap();
-        let mut pipe = signal(SignalKind::pipe()).unwrap();
-        let mut quit = signal(SignalKind::quit()).unwrap();
-        let mut terminate = signal(SignalKind::terminate()).unwrap();
-        let mut user_defined1 = signal(SignalKind::user_defined1()).unwrap();
-        let mut user_defined2 = signal(SignalKind::user_defined2()).unwrap();
-
-        tokio::select! {
-            _ = alarm.recv() => info!("alarm"),
-            _ = hangup.recv() => info!("hangup"),
-            _ = interrupt.recv() => info!("interrupt"),
-            _ = pipe.recv() => info!("pipe"),
-            _ = quit.recv() => info!("quit"),
-            _ = terminate.recv() => info!("terminate"),
-            _ = user_defined1.recv() => info!("user_defined1"),
-            _ = user_defined2.recv() => info!("user_defined2"),
-        }
-
-        std::process::exit(0);
-    });
+    drop(initial_config);
 
     // Accept connections as they come in
     loop {
@@ -151,200 +121,4 @@ async fn main() -> eyre::Result<()> {
             Err(e) => error!("Error connecting to client: {}", e),
         }
     }
-}
-
-const PING_TIMEOUT: Duration = Duration::from_millis(300);
-
-macro_rules! timeout_break {
-    ($timeout:ident, $response:expr) => {
-        match timeout($timeout, $response).await {
-            Ok(Ok(result)) => result,
-            Ok(Err(error)) => return Err(error),
-            Err(_) => {
-                debug!("timeout exceeded");
-                return Ok(ControlFlow::Break(()));
-            }
-        }
-    };
-}
-
-#[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty, upstream=field::Empty))]
-async fn handle_connection(
-    connection_id: u16,
-    config: Arc<Config>,
-    #[cfg(feature = "discovery")] discovered_servers: Arc<discovery::DiscoveredServers>,
-    client_stream: &mut TcpStream,
-) -> Result<ControlFlow<(), (TcpStream, Handshake)>, TracedError<io::Error>> {
-    // TODO: Handle legacy ping
-    trace!("new connection");
-
-    // First, the client sends a Handshake packet with its state set to 1.
-    let (handshake, handshake_packet) = timeout_break!(PING_TIMEOUT, read_handshake(client_stream));
-    debug!(
-        address = handshake.address,
-        port = handshake.port,
-        protocol_version = handshake.protocol_version,
-        next_state = ?handshake.next_state,
-        "handshake received"
-    );
-    Span::current().record("address", &handshake.address);
-    Span::current().record("next_state", handshake.next_state.to_string());
-
-    // Handle mapping
-    let upstream = config.static_servers.get(&handshake.address).copied();
-
-    #[cfg(feature = "discovery")]
-    let upstream = upstream.or_else(|| {
-        discovered_servers
-            .get_by_hostname(&handshake.address)
-            .map(|server| server.upstream())
-    });
-
-    let upstream = match upstream {
-        Some(a) => a,
-        None => {
-            warn!("unknown address");
-
-            match handshake.next_state {
-                proto::NextState::Ping => {
-                    timeout_break!(
-                        PING_TIMEOUT,
-                        ping_response(
-                            client_stream,
-                            config.placeholder_server.responses.no_mapping.as_ref()
-                        )
-                    );
-                    return Ok(ControlFlow::Break(()));
-                }
-                proto::NextState::Login => {
-                    timeout_break!(
-                        PING_TIMEOUT,
-                        login_response(
-                            client_stream,
-                            config.placeholder_server.responses.no_mapping.as_ref()
-                        )
-                    );
-                    return Ok(ControlFlow::Break(()));
-                }
-                proto::NextState::Transfer => {
-                    error!("unimplemented");
-                    return Ok(ControlFlow::Break(()));
-                }
-                proto::NextState::Unknown(state) => {
-                    warn!(state, "unknown next_state");
-                    return Ok(ControlFlow::Break(()));
-                }
-            }
-        }
-    };
-    Span::current().record("upstream", upstream.to_string());
-
-    let mut server_stream = match TcpStream::connect(upstream)
-        .instrument(trace_span!("connect_upstream"))
-        .await
-    {
-        Ok(stream) => stream,
-        Err(error) => {
-            error!(
-                %error,
-                "could not connect to upstream"
-            );
-
-            match handshake.next_state {
-                proto::NextState::Ping => {
-                    timeout_break!(
-                        PING_TIMEOUT,
-                        ping_response(
-                            client_stream,
-                            config.placeholder_server.responses.offline.as_ref()
-                        )
-                    );
-                    return Ok(ControlFlow::Break(()));
-                }
-                proto::NextState::Login => {
-                    timeout_break!(
-                        PING_TIMEOUT,
-                        login_response(
-                            client_stream,
-                            config.placeholder_server.responses.offline.as_ref()
-                        )
-                    );
-                    return Ok(ControlFlow::Break(()));
-                }
-                proto::NextState::Transfer => {
-                    error!("unimplemented");
-                    return Ok(ControlFlow::Break(()));
-                }
-                proto::NextState::Unknown(state) => {
-                    warn!(state, "unknown next_state");
-                    return Ok(ControlFlow::Break(()));
-                }
-            }
-        }
-    };
-    trace!("connected to upstream");
-
-    // Forward the handshake to the upstream
-    write_packet(
-        &mut server_stream,
-        handshake_packet.id,
-        &handshake_packet.data,
-    )
-    .await?;
-
-    trace!("passing upstream to proxy");
-
-    Ok(ControlFlow::Continue((server_stream, handshake)))
-}
-
-#[tracing::instrument(skip_all, err)]
-async fn ping_response(
-    client_stream: &mut TcpStream,
-    response: Option<&StatusResponse>,
-) -> Result<(), TracedError<io::Error>> {
-    // The client follows up with a Status Request packet. This packet has no fields. The client is also able to skip this part entirely and send a Ping Request instead.
-    read_packet(client_stream).await?;
-
-    if let Some(response) = response {
-        // The server should respond with a Status Response packet.
-        write_status_response(client_stream, response).await?;
-    }
-
-    // If the process is continued, the client will now send a Ping Request packet containing some payload which is not important.
-    let packet = read_ping_request(client_stream).await?;
-    // The server will respond with the Pong Response packet and then close the connection.
-    write_pong_response(client_stream, packet).await?;
-
-    InstrumentResult::in_current_span(client_stream.shutdown().await)?;
-
-    Ok(())
-}
-
-#[tracing::instrument(skip_all, err)]
-async fn login_response(
-    client_stream: &mut TcpStream,
-    response: Option<&StatusResponse>,
-) -> Result<(), TracedError<io::Error>> {
-    // TODO: put this in a struct
-    let packet = read_packet(client_stream).await?;
-    assert_eq!(packet.id, 0x00);
-
-    let mut data_buf = packet.data.as_slice();
-    // TODO: no need for these to be async
-    let name = string::read(&mut data_buf).await?;
-    let uuid = data_buf.read_u128().await?;
-
-    println!("{name}: {uuid:x?}");
-
-    if let Some(response) = response {
-        // TODO: I can totally mechanize the construction of packets, maybe look into that?
-        write_packet(
-            client_stream,
-            0x00,
-            &string::write(&serde_json::to_string(&response.description).unwrap()),
-        )
-        .await?;
-    }
-
-    Ok(())
 }
