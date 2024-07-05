@@ -27,6 +27,7 @@ fn main() {
     // Write the generated code to a file
     fs::write(out_dir.join("features.rs"), feature_code).unwrap();
 
+    #[cfg(feature = "autometrics")]
     vergen::EmitBuilder::builder()
         .git_sha(true)
         .git_branch()

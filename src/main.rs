@@ -25,7 +25,11 @@ include!(concat!(env!("OUT_DIR"), "/features.rs"));
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    eprintln!("{:#?}", std::env::vars().collect::<Vec<_>>());
+    #[cfg(feature = "ui")]
+    let handle = metrics_exporter_prometheus::PrometheusBuilder::new()
+        .install_recorder()
+        .map_err(tokio::io::Error::other)
+        .map_err(tracing_error::InstrumentError::in_current_span)?;
 
     #[cfg(feature = "autometrics")]
     autometrics::settings::AutometricsSettings::builder()
@@ -57,7 +61,7 @@ async fn main() -> eyre::Result<()> {
     // let config = task::spawn(config::watch(config_file));
     if let Some(config) = initial_config.ui {
         #[cfg(feature = "ui")]
-        task::spawn(ui::listen(config, config_file, config_sender));
+        task::spawn(ui::listen(config, config_file, config_sender, handle));
 
         #[cfg(not(feature = "ui"))]
         let _ = (config_sender, config);

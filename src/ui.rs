@@ -6,6 +6,7 @@ use std::{
 };
 
 use axum::{extract::State, http::StatusCode, routing::method_routing};
+use metrics_exporter_prometheus::PrometheusHandle;
 use tokio::{
     io::{self},
     net::TcpListener,
@@ -23,6 +24,7 @@ pub async fn listen(
     config: UiServerConfig,
     config_path: PathBuf,
     sender: Sender<Arc<Config>>,
+    handle: PrometheusHandle,
 ) -> Result<(), TracedError<io::Error>> {
     let router = axum::Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -32,9 +34,8 @@ pub async fn listen(
         )
         .route(
             "/metrics",
-            method_routing::get(|| async {
-                autometrics::prometheus_exporter::encode_http_response()
-            }),
+            method_routing::get(|State::<PrometheusHandle>(handle)| async move { handle.render() })
+                .with_state(handle),
         );
 
     let socket = TcpListener::bind(config.listen_address).await?;
