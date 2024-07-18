@@ -5,8 +5,12 @@ use std::{
     sync::Arc,
 };
 
-use axum::{extract::State, http::StatusCode, routing::method_routing};
-use metrics_exporter_prometheus::PrometheusHandle;
+use axum::{
+    extract::State,
+    http::{header, StatusCode},
+    routing::method_routing,
+};
+use prometheus_client::{encoding, registry::Registry};
 use tokio::{
     io::{self},
     net::TcpListener,
@@ -24,7 +28,7 @@ pub async fn listen(
     config: UiServerConfig,
     config_path: PathBuf,
     sender: Sender<Arc<Config>>,
-    handle: PrometheusHandle,
+    #[cfg(feature = "metrics")] registry: &'static Registry,
 ) -> Result<(), TracedError<io::Error>> {
     let router = axum::Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -34,8 +38,20 @@ pub async fn listen(
         )
         .route(
             "/metrics",
-            method_routing::get(|State::<PrometheusHandle>(handle)| async move { handle.render() })
-                .with_state(handle),
+            method_routing::get(|State::<&'static Registry>(registry)| async move {
+                let mut output = String::new();
+                match encoding::text::encode(&mut output, registry) {
+                    Ok(()) => Ok((
+                        [(
+                            header::CONTENT_TYPE,
+                            header::HeaderValue::from_static("text/plain; version=0.0.4"),
+                        )],
+                        output,
+                    )),
+                    Err(error) => Err((StatusCode::INTERNAL_SERVER_ERROR, error.to_string())),
+                }
+            })
+            .with_state(registry),
         );
 
     let socket = TcpListener::bind(config.listen_address).await?;

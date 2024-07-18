@@ -1,17 +1,20 @@
-use std::{ops::ControlFlow, sync::Arc, time::Duration};
+use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 
 use tokio::{io, net::TcpStream, time::timeout};
 use tracing::{debug, error, field, trace, trace_span, warn, Instrument, Span};
 use tracing_error::TracedError;
 
-use crate::{config::schema::Config, proto::{
-    io::{
-        read_handshake,
-        response::{login_response, ping_response},
-        write_packet,
+use crate::{
+    config::schema::Config,
+    proto::{
+        io::{
+            read_handshake,
+            response::{login_response, ping_response},
+            write_packet,
+        },
+        Handshake, NextState,
     },
-    Handshake, NextState,
-}};
+};
 
 const PING_TIMEOUT: Duration = Duration::from_millis(300);
 
@@ -32,11 +35,15 @@ macro_rules! timeout_break {
 pub async fn handle_connection(
     connection_id: u16,
     config: Arc<Config>,
-    #[cfg(feature = "discovery")] discovered_servers: Arc<crate::discovery::DiscoveredServers>,
     client_stream: &mut TcpStream,
-) -> Result<ControlFlow<(), (TcpStream, Handshake)>, TracedError<io::Error>> {
+    #[cfg(feature = "discovery")] discovered_servers: Arc<crate::discovery::DiscoveredServers>,
+    #[cfg(feature = "metrics")] connection_metrics: crate::metrics::ConnectionMetrics,
+) -> Result<ControlFlow<(), (TcpStream, SocketAddr, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
     trace!("new connection");
+
+    #[cfg(feature = "metrics")]
+    connection_metrics.client_connections.inc();
 
     // First, the client sends a Handshake packet with its state set to 1.
     let (handshake, handshake_packet) = timeout_break!(PING_TIMEOUT, read_handshake(client_stream));
@@ -49,6 +56,9 @@ pub async fn handle_connection(
     );
     Span::current().record("address", &handshake.address);
     Span::current().record("next_state", handshake.next_state.to_string());
+
+    #[cfg(feature = "metrics")]
+    connection_metrics.client_handshakes_received.inc();
 
     // Handle mapping
     let upstream = config.static_servers.get(&handshake.address).copied();
@@ -64,6 +74,9 @@ pub async fn handle_connection(
         Some(a) => a,
         None => {
             warn!("unknown address");
+
+            #[cfg(feature = "metrics")]
+            connection_metrics.connection_unknown_upstream.inc();
 
             match handshake.next_state {
                 NextState::Ping => {
@@ -115,6 +128,12 @@ pub async fn handle_connection(
                 "could not connect to upstream"
             );
 
+            #[cfg(feature = "metrics")]
+            connection_metrics
+                .connection_can_not_reach_upstream
+                .get_or_create(&upstream.into())
+                .inc();
+
             match handshake.next_state {
                 NextState::Ping => {
                     timeout_break!(
@@ -154,6 +173,12 @@ pub async fn handle_connection(
     };
     trace!("connected to upstream");
 
+    #[cfg(feature = "metrics")]
+    connection_metrics
+        .connection_established
+        .get_or_create(&upstream.into())
+        .inc();
+
     // Forward the handshake to the upstream
     write_packet(
         &mut server_stream,
@@ -164,5 +189,5 @@ pub async fn handle_connection(
 
     trace!("passing upstream to proxy");
 
-    Ok(ControlFlow::Continue((server_stream, handshake)))
+    Ok(ControlFlow::Continue((server_stream, upstream, handshake)))
 }

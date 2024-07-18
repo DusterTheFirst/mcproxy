@@ -15,6 +15,8 @@ mod trace;
 
 #[cfg(feature = "discovery")]
 mod discovery;
+#[cfg(feature = "metrics")]
+mod metrics;
 #[cfg(feature = "pid1")]
 mod signals;
 #[cfg(feature = "ui")]
@@ -25,22 +27,26 @@ include!(concat!(env!("OUT_DIR"), "/features.rs"));
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    #[cfg(feature = "ui")]
-    let handle = metrics_exporter_prometheus::PrometheusBuilder::new()
-        .install_recorder()
-        .map_err(tokio::io::Error::other)
-        .map_err(tracing_error::InstrumentError::in_current_span)?;
-
-    #[cfg(feature = "autometrics")]
-    autometrics::settings::AutometricsSettings::builder()
-        .repo_url(env!("CARGO_PKG_REPOSITORY"))
-        .service_name(env!("CARGO_PKG_NAME"))
-        .init();
+    #[cfg(feature = "pid1")]
+    task::spawn(signals::handle_exit());
 
     init_tracing_subscriber();
 
-    #[cfg(feature = "pid1")]
-    task::spawn(signals::handle_exit());
+    #[cfg(feature = "metrics")]
+    let (registry, connection_metrics, active_connection_metrics) = metrics::create_metrics();
+
+    #[cfg(feature = "autometrics")]
+    let autometrics = autometrics::settings::AutometricsSettings::builder()
+        .repo_url(env!("CARGO_PKG_REPOSITORY"))
+        .service_name(env!("CARGO_PKG_NAME"))
+        .prometheus_client_registry(registry)
+        .init();
+
+    #[cfg(feature = "autometrics")]
+    let registry = autometrics.prometheus_client_registry();
+
+    #[cfg(all(feature = "metrics", not(feature = "autometrics")))]
+    let registry = Box::leak(Box::new(registry));
 
     info!(features=?ENABLED_FEATURES, "proxy starting");
 
@@ -61,7 +67,13 @@ async fn main() -> eyre::Result<()> {
     // let config = task::spawn(config::watch(config_file));
     if let Some(config) = initial_config.ui {
         #[cfg(feature = "ui")]
-        task::spawn(ui::listen(config, config_file, config_sender, handle));
+        task::spawn(ui::listen(
+            config,
+            config_file,
+            config_sender,
+            #[cfg(feature = "metrics")]
+            registry,
+        ));
 
         #[cfg(not(feature = "ui"))]
         let _ = (config_sender, config);
@@ -91,6 +103,11 @@ async fn main() -> eyre::Result<()> {
                 let config = config.borrow().clone();
                 #[cfg(feature = "discovery")]
                 let discovered_servers = discovered_servers.clone(); // TODO:
+                #[cfg(feature = "metrics")]
+                let (connection_metrics, active_connection_metrics) = (
+                    connection_metrics.clone(),
+                    active_connection_metrics.clone(),
+                );
 
                 // Get the connection id
                 let connection_id = client_stream.peer_addr().unwrap().port();
@@ -101,13 +118,24 @@ async fn main() -> eyre::Result<()> {
                     match handle_connection(
                         connection_id,
                         config,
+                        &mut client_stream,
                         #[cfg(feature = "discovery")]
                         discovered_servers,
-                        &mut client_stream,
+                        #[cfg(feature = "metrics")]
+                        connection_metrics,
                     )
                     .await
                     {
-                        Ok(ControlFlow::Continue((server_stream, handshake))) => {
+                        Ok(ControlFlow::Continue((server_stream, upstream, handshake))) => {
+                            #[cfg(feature = "metrics")]
+                            let upstream = upstream.into();
+
+                            #[cfg(feature = "metrics")]
+                            active_connection_metrics
+                                .active_server_connections
+                                .get_or_create(&upstream)
+                                .inc();
+
                             // Spin up constant proxy until the connection is complete
                             ProxyServer::new(server_stream, client_stream)
                                 .start()
@@ -118,6 +146,12 @@ async fn main() -> eyre::Result<()> {
                                     next_state = %handshake.next_state
                                 ))
                                 .await;
+
+                            #[cfg(feature = "metrics")]
+                            active_connection_metrics
+                                .active_server_connections
+                                .get_or_create(&upstream)
+                                .dec();
                         }
                         Ok(ControlFlow::Break(())) => {}
                         Err(e) => {
