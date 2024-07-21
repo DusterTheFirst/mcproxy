@@ -43,6 +43,8 @@ services:
       TYPE: "paper"
     volumes:
       - ./pack.png:/data/server-icon.png:ro
+    ports:
+      - 25570-25579:25565
     labels:
       mcproxy: mcproxy.dusterthefirst.com
       mcproxy.replica_behavior: index-subdomain
