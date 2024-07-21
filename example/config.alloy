@@ -1,0 +1,71 @@
+otelcol.receiver.otlp "opentelemetry" {
+  grpc {
+    endpoint = "127.0.0.1:4317"
+  }
+
+  http {
+    endpoint = "127.0.0.1:4318"
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.opentelemetry.input]
+    logs    = [otelcol.processor.batch.opentelemetry.input]
+    traces  = [otelcol.processor.batch.opentelemetry.input]
+  }
+}
+
+otelcol.processor.batch "opentelemetry" {
+  output {
+    metrics = [otelcol.exporter.prometheus.metrics.input]
+    logs    = [otelcol.exporter.loki.logs.input]
+    traces  = [otelcol.exporter.otlp.traces.input]
+  }
+}
+
+otelcol.exporter.otlp "traces" {
+	client {
+		endpoint = "tempo:443"
+	}
+}
+
+otelcol.exporter.prometheus "metrics" {
+    forward_to = [prometheus.remote_write.metrics.receiver]
+}
+
+prometheus.remote_write "metrics" {
+    endpoint {
+        url = "http://prometheus:9090/api/v1/write"
+    }
+}
+
+otelcol.exporter.loki "logs" {
+	forward_to = [loki.write.logs.receiver]
+}
+
+loki.write "logs" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}
+
+
+// Metamonitoring
+// prometheus.exporter.self "alloy" {}
+
+// prometheus.scrape "metamonitoring" {
+//   targets    = prometheus.exporter.self.alloy.targets
+//   forward_to = [prometheus.remote_write.metrics.receiver]
+// }
+
+// // Node Exporter
+// prometheus.exporter.unix "node_exporter" {
+//   procfs_path = "/external/proc/"
+//   sysfs_path = "/external/sys/"
+//   rootfs_path = "/external/"
+//   udev_data_path = "/external/run/udev/data"
+// }
+
+// prometheus.scrape "prometheus" {
+//   targets    = prometheus.exporter.unix.node_exporter.targets
+//   forward_to = [prometheus.remote_write.metrics.receiver]
+// }

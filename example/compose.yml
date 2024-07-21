@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     command: ["/config/config.toml"]
     volumes:
-      - .:/config
+      - ./config:/config
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       # Minecraft
@@ -42,10 +42,86 @@ services:
       EULA: "TRUE"
       TYPE: "paper"
     volumes:
-      - ./pack.png:/data/server-icon.png:ro
+      - ./server-icon.png:/data/server-icon.png:ro
     ports:
       - 25570-25579:25565
     labels:
       mcproxy: mcproxy.dusterthefirst.com
       mcproxy.replica_behavior: index-subdomain
       # mcproxy.port: 25565
+
+  grafana:
+    image: grafana/grafana:11.0.1
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    depends_on:
+      - loki
+      - prometheus
+      # - tempo
+
+  alloy:
+    image: grafana/alloy:v1.2.1
+    restart: unless-stopped
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /:/external:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 12345:12345
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    depends_on:
+      - loki
+      - prometheus
+      # - tempo
+      - cadvisor
+
+  loki:
+    image: grafana/loki:3.0.0
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki:/loki
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    restart: unless-stopped
+    command:
+      - --web.enable-remote-write-receiver
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --enable-feature=exemplar-storage
+      - --enable-feature=native-histograms
+    volumes:
+      - prometheus:/prometheus
+
+  # tempo:
+  #   image: grafana/tempo:2.5.0
+  #   restart: unless-stopped
+  #   command: [ "-config.file=/etc/tempo.yaml" ]
+  #   volumes:
+  #     - tempo:/var/tempo
+  #     - ./tempo.yml:/etc/tempo.yaml
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    ports:
+      - 8089:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+volumes:
+  grafana: {}
+  prometheus: {}
+  loki: {}
+  tempo: {}
