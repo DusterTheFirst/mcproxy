@@ -7,7 +7,7 @@ repository = "https://github.com/dusterthefirst/mcproxy"
 version    = "0.1.0"
 
 [profile.release]
-# debug = "line-tables-only"
+debug = "line-tables-only"
 lto = "thin"
 
 [features]

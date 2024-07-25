@@ -57,5 +57,5 @@ COPY --from=builder /mcproxy /
 EXPOSE 25535
 ENTRYPOINT ["/mcproxy"]
 
-FROM runtime as runtime-alpine
+FROM runtime AS runtime-alpine
 COPY --from=alpine:latest / /
