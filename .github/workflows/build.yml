@@ -1,23 +1,33 @@
-name: Test
+name: Build
 
 on: [push, pull_request]
 
 jobs:
   # Build the program
-  build:
+  build-docker:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - name: Build
-      run: cargo build --verbose --release
-    - uses: actions/upload-artifact@master
-      with:
-        name: binaries
-        path: target/release/mcproxy
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: ghcr.io/dusterthefurst/mcproxy:alpha
+
   # Test the program (after build)
   test:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-docker
     steps:
     - uses: actions/checkout@v1
     - name: Run tests
@@ -29,7 +39,7 @@ jobs:
   # Lint the program (after build)
   clippy:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-docker
     steps:
     - uses: actions/checkout@v1
     - name: Run clippy
@@ -37,7 +47,7 @@ jobs:
   # Check code formatting (after build)
   rustfmt:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-docker
     continue-on-error: true
     steps:
     - uses: actions/checkout@v1
