@@ -8,7 +8,7 @@ version    = "0.1.0"
 
 [profile.release]
 # debug = "line-tables-only"
-debug = "full"
+debug = "limited"
 lto   = "thin"
 
 [features]

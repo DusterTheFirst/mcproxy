@@ -44,7 +44,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Run tests
-      run: cargo test --verbose -F schemars
+      run: cargo test --verbose
     - uses: actions/upload-artifact@master
       with:
         name: config-schema
