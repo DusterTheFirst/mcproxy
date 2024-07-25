@@ -19,12 +19,10 @@ ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-none-elf-gcc \
     CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER=arm-none-eabi-gcc
 RUN case ${TARGETPLATFORM} in \
         linux/arm64) echo "export RUST_TARGET=aarch64-unknown-linux-musl" >> /env ;; \
-        linux/arm/v7) echo "export RUST_TARGET=armv7-alpine-linux-musleabihf" >> /env ;; \
+        linux/arm/v7) echo "export RUST_TARGET=armv7-unknown-linux-musleabihf" >> /env ;; \
         linux/amd64) echo "export RUST_TARGET=x86_64-unknown-linux-musl" >> /env  ;; \
         *) exit 1 ;; \
     esac
-
-# arm-unknown-linux-musleabi
 
 RUN set -eux; \
     . /env; \
