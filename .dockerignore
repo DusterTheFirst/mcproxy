@@ -3,6 +3,7 @@
 !/.cargo
 !/Cargo.toml
 !/build.rs
+!/.git #for vergen
 
 **/*~
 **/*.log
