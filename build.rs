@@ -28,9 +28,15 @@ fn main() {
     fs::write(out_dir.join("features.rs"), feature_code).unwrap();
 
     #[cfg(feature = "metrics")]
-    vergen::EmitBuilder::builder()
-        .git_sha(true)
-        .git_branch()
+    vergen_gix::Emitter::new()
+        .add_instructions(
+            &vergen_gix::GixBuilder::default()
+                .sha(true)
+                .branch(true)
+                .build()
+                .unwrap(),
+        )
+        .unwrap()
         .emit()
         .expect("Unable to generate build info");
 }
