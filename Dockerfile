@@ -32,8 +32,7 @@ RUN set -eux; \
 ARG FEATURES=pid1,metrics
 
 # Build dependencies - this is the caching Docker layer!
-RUN --mount=type=cache,target=${CARGO_HOME}/registry \
-    set -eux; \
+RUN set -eux; \
     . /env; \
     cargo chef cook --target=$RUST_TARGET --release --recipe-path recipe.json --features=$FEATURES;
 
@@ -41,8 +40,7 @@ RUN --mount=type=cache,target=${CARGO_HOME}/registry \
 COPY . /app
 
 # Build application - this is the caching Docker layer!
-RUN --mount=type=cache,target=${CARGO_HOME}/registry \
-    set -eux; \
+RUN set -eux; \
     . /env; \
     cargo build --target=$RUST_TARGET --release --features=$FEATURES; \
     cp /app/target/$RUST_TARGET/release/mcproxy /mcproxy
