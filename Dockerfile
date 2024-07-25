@@ -48,7 +48,8 @@ RUN --mount=type=cache,target=${CARGO_HOME}/registry \
     cp /app/target/$RUST_TARGET/release/mcproxy /mcproxy
 
 # Create a single layer image
-FROM scratch AS runtime
+ARG BASE=scratch
+FROM $BASE AS runtime
 LABEL org.opencontainers.image.source="https://github.com/dusterthefirst/mcproxy"
 LABEL org.opencontainers.image.description="A reverse proxy for your Minecraft: Java Edition servers."
 LABEL org.opencontainers.image.licenses="MPL-2.0"

@@ -6,6 +6,10 @@ jobs:
   # Build the program
   build-docker:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        base: [scratch, alpine]
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -20,9 +24,10 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
+          build-args: "BASE=${{ matrix.base }}"
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
-          tags: ghcr.io/dusterthefirst/mcproxy:alpha
+          tags: ghcr.io/dusterthefirst/mcproxy:alpha-${{ matrix.base }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
