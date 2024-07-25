@@ -22,7 +22,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
-          tags: ghcr.io/dusterthefurst/mcproxy:alpha
+          tags: ghcr.io/dusterthefirst/mcproxy:alpha
 
   # Test the program (after build)
   test:
