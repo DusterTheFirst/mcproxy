@@ -3,6 +3,9 @@ services:
     build:
       context: ../
       dockerfile: Dockerfile
+      target: runtime
+      tags:
+        - ghcr.io/dusterthefirst/mcproxy:alpha
     command: ["/config/config.toml"]
     volumes:
       - ./config:/config

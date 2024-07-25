@@ -1,6 +1,9 @@
 # Base image for the build stage - this is a multi-stage build that uses cross-compilation (thanks to --platform switch)
-FROM --platform=$BUILDPLATFORM lukemathwalker/cargo-chef:latest-rust-alpine AS chef
+FROM --platform=$BUILDPLATFORM rust:alpine AS chef
 WORKDIR /app
+RUN set -eux; \
+    apk add musl-dev; \
+    cargo install cargo-chef
 
 # Planner stage
 FROM chef AS planner
@@ -27,7 +30,7 @@ RUN case ${TARGETPLATFORM} in \
 RUN set -eux; \
     . /env; \
     rustup target add $RUST_TARGET; \
-    apk add --no-cache gcc-aarch64-none-elf gcc-arm-none-eabi musl-dev git;
+    apk add --no-cache gcc-aarch64-none-elf gcc-arm-none-eabi git;
 
 ARG FEATURES=pid1,metrics
 
