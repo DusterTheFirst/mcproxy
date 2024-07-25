@@ -21,7 +21,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           target: runtime
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/arm/v7 #linux/amd64,linux/arm64
           push: true
           tags: ghcr.io/dusterthefirst/mcproxy:alpha
           cache-from: type=gha
@@ -31,7 +31,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           target: runtime-alpine
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          platforms: linux/arm/v7 #linux/amd64,linux/arm64,
           push: true
           tags: ghcr.io/dusterthefirst/mcproxy:alpha-alpine
           cache-from: type=gha
