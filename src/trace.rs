@@ -21,9 +21,11 @@ pub fn resource() -> opentelemetry_sdk::Resource {
 // Construct Tracer for OpenTelemetryLayer
 #[cfg(feature = "telemetry")]
 pub fn init_tracer() -> opentelemetry_sdk::trace::Tracer {
+    use opentelemetry::global;
+    use opentelemetry::trace::TracerProvider;
     use opentelemetry_otlp::WithExportConfig;
 
-    opentelemetry_otlp::new_pipeline()
+    let provider = opentelemetry_otlp::new_pipeline()
         .tracing()
         .with_trace_config(
             opentelemetry_sdk::trace::Config::default()
@@ -42,7 +44,11 @@ pub fn init_tracer() -> opentelemetry_sdk::trace::Tracer {
                 .with_endpoint(std::env::var("OTLP_ENDPOINT").unwrap_or_default()),
         )
         .install_batch(opentelemetry_sdk::runtime::Tokio)
-        .unwrap()
+        .unwrap();
+
+    global::set_tracer_provider(provider.clone());
+
+    provider.tracer("tracing")
 }
 
 pub fn init_tracing_subscriber() {

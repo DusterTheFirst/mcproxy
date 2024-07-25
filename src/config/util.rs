@@ -9,15 +9,15 @@ mod private {
 }
 
 pub trait Marker: private::Sealed {
-    #[cfg(not(feature = "schemars"))]
+    #[cfg(not(test))]
     type PointerType: DeserializeOwned + Debug;
 
-    #[cfg(feature = "schemars")]
+    #[cfg(test)]
     type PointerType: DeserializeOwned + schemars::JsonSchema + Debug;
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Raw {}
 impl private::Sealed for Raw {}
 impl Marker for Raw {
@@ -25,7 +25,7 @@ impl Marker for Raw {
 }
 
 #[derive(Deserialize)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Elaborated {}
 impl private::Sealed for Elaborated {}
 impl Marker for Elaborated {

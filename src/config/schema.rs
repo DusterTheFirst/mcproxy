@@ -7,7 +7,7 @@ use super::util::{Elaborated, Marker};
 pub type Config = GenericConfig<Elaborated>;
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct GenericConfig<T: Marker> {
     /// The config for the placeholder server
     pub placeholder_server: PlaceholderServerConfig<T>,
@@ -26,21 +26,21 @@ pub struct GenericConfig<T: Marker> {
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct ProxyConfig {
     /// Address to bind the Minecraft proxy to
     pub listen_address: SocketAddr,
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct PlaceholderServerConfig<T: Marker> {
     /// The responses config files
     pub responses: PlaceholderServerResponses<T>,
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct PlaceholderServerResponses<T: Marker> {
     /// Response for server when mapping exists but connection failed
     pub offline: Option<T::PointerType>,
@@ -49,21 +49,21 @@ pub struct PlaceholderServerResponses<T: Marker> {
 }
 
 #[derive(Deserialize, Debug, Clone, Copy)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct UiServerConfig {
     /// Address to bind the HTTP server to
     pub listen_address: SocketAddr,
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct ServerDiscoveryConfig {
     /// Configuration for docker service discovery
     docker: Option<DockerServerDiscoveryConfig>,
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct DockerServerDiscoveryConfig {
     /// Path to the docker socket
     socket: PathBuf,
@@ -76,7 +76,6 @@ mod test {
         proto::response::StatusResponse,
     };
 
-    #[cfg(feature = "schemars")]
     fn generate_schema_for<T: ?Sized + schemars::JsonSchema>(filename: &str) {
         let file = [env!("CARGO_MANIFEST_DIR"), "target", "schema", filename]
             .into_iter()
@@ -94,19 +93,12 @@ mod test {
         .unwrap();
     }
 
-    #[cfg(not(feature = "schemars"))]
-    fn generate_schema_for<T>(_: &str) {
-        unreachable!()
-    }
-
     #[test]
-    #[cfg_attr(not(feature = "schemars"), ignore = "requires feature `schemars`")]
     fn config_schema() {
         generate_schema_for::<GenericConfig<Raw>>("config.schema.json");
     }
 
     #[test]
-    #[cfg_attr(not(feature = "schemars"), ignore = "requires feature `schemars`")]
     fn response_schema() {
         generate_schema_for::<StatusResponse>("response.schema.json");
     }

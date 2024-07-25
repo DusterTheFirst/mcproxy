@@ -34,7 +34,7 @@ pub mod response {
 
     /// The JSON response to a ping
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+    #[cfg_attr(test, derive(schemars::JsonSchema))]
     pub struct StatusResponse {
         pub version: Version,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,14 +46,14 @@ pub mod response {
 
     /// The version part of the JSON response to a ping
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+    #[cfg_attr(test, derive(schemars::JsonSchema))]
     pub struct Version {
         pub name: String,
         pub protocol: i32,
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+    #[cfg_attr(test, derive(schemars::JsonSchema))]
     pub struct Players {
         pub max: u16,
         pub online: u16,
@@ -61,7 +61,7 @@ pub mod response {
     }
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
-    #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+    #[cfg_attr(test, derive(schemars::JsonSchema))]
     pub struct Player {
         pub name: String,
         pub id: String,
@@ -69,7 +69,7 @@ pub mod response {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(untagged)]
 /// A minecraft chat object
 pub enum TextComponent {
