@@ -27,7 +27,7 @@ RUN case ${TARGETPLATFORM} in \
 RUN set -eux; \
     . /env; \
     rustup target add $RUST_TARGET; \
-    apk add --no-cache gcc-aarch64-none-elf gcc-arm-none-eabi musl-dev;
+    apk add --no-cache gcc-aarch64-none-elf gcc-arm-none-eabi musl-dev git;
 
 ARG FEATURES=pid1,metrics
 
