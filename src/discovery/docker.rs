@@ -18,7 +18,7 @@ use eyre::Context;
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, warn};
 
-use crate::discovery::{ActiveServer, DiscoveredServers, ServerId, ServerInsertionError};
+use crate::{config::schema::Upstream, discovery::{ActiveServer, DiscoveredServers, ServerId, ServerInsertionError}};
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct ContainerId([u8; 32]);
@@ -138,7 +138,7 @@ fn gather_server_information(
 
         Some(ActiveServer {
             hostnames: vec![hostname],
-            upstream: SocketAddr::new(ip, port.unwrap_or(25565)),
+            upstream: Upstream::from(SocketAddr::new(ip, port.unwrap_or(25565))),
         })
     } else {
         warn!(

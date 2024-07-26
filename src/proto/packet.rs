@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
 
+use crate::config::schema::Hostname;
+
 #[derive(Debug)]
 pub struct Packet {
     pub length: i32,
@@ -22,7 +24,7 @@ impl Display for Packet {
 #[derive(Debug)]
 pub struct Handshake {
     pub protocol_version: i32,
-    pub address: String,
+    pub address: Hostname,
     pub port: u16,
     pub next_state: NextState,
 }

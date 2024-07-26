@@ -1,11 +1,12 @@
 use std::{
     fmt::{Debug, Display},
-    net::SocketAddr,
     ops::{Bound, ControlFlow},
     sync::Arc,
 };
 
 use dashmap::DashMap;
+
+use crate::config::schema::{Hostname, Upstream};
 
 #[cfg(feature = "discovery-docker")]
 mod docker;
@@ -14,12 +15,12 @@ mod docker;
 pub struct ActiveServer {
     hostnames: Vec<Arc<str>>,
 
-    upstream: SocketAddr,
+    upstream: Upstream,
 }
 
 impl ActiveServer {
-    pub fn upstream(&self) -> SocketAddr {
-        self.upstream
+    pub fn upstream(&self) -> Upstream {
+        self.upstream.clone()
     }
 }
 
@@ -83,10 +84,10 @@ pub struct DiscoveredServers {
 impl DiscoveredServers {
     pub fn get_by_hostname(
         &self,
-        hostname: &str,
+        hostname: Hostname,
     ) -> Option<dashmap::mapref::one::Ref<ServerId, ActiveServer>> {
         self.hostname_index
-            .get(hostname)
+            .get(hostname.as_ref())
             .and_then(|id| self.active_servers.get(&*id))
     }
 

@@ -5,7 +5,7 @@ use tokio::{
 };
 use tracing_error::{InstrumentResult, TracedError};
 
-use crate::proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet};
+use crate::{config::schema::Hostname, proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet}};
 
 pub mod response;
 
@@ -70,7 +70,7 @@ pub async fn read_handshake(
     Ok((
         Handshake {
             protocol_version,
-            address,
+            address: Hostname::from(address),
             port,
             next_state: NextState::from(next_state),
         },

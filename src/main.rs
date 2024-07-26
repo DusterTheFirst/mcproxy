@@ -128,9 +128,6 @@ async fn main() -> eyre::Result<()> {
                     {
                         Ok(ControlFlow::Continue((server_stream, upstream, handshake))) => {
                             #[cfg(feature = "metrics")]
-                            let upstream = upstream.into();
-
-                            #[cfg(feature = "metrics")]
                             active_connection_metrics
                                 .active_server_connections
                                 .get_or_create(&upstream)
@@ -142,7 +139,7 @@ async fn main() -> eyre::Result<()> {
                                 .instrument(trace_span!(
                                     "proxy",
                                     connection=connection_id,
-                                    address = handshake.address,
+                                    address = handshake.address.as_ref(),
                                     next_state = %handshake.next_state
                                 ))
                                 .await;

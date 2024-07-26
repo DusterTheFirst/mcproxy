@@ -1,11 +1,12 @@
-use std::fmt::{Debug, Write};
-use std::net::{IpAddr, SocketAddr};
+use std::fmt::Debug;
 
 use prometheus_client::{
-    encoding::{EncodeLabelSet, EncodeLabelValue, LabelValueEncoder},
+    encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, gauge::Gauge, info::Info},
     registry::Registry,
 };
+
+use crate::config::schema::Upstream;
 
 /// These are the labels used for the `build_info` metric.
 #[derive(EncodeLabelSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -15,36 +16,6 @@ pub struct BuildInfo {
     pub version: &'static str,
     pub service_name: &'static str,
     pub repo_url: &'static str,
-}
-
-#[derive(EncodeLabelSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Upstream {
-    pub host: IpLabel,
-    pub port: u16,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct IpLabel(IpAddr);
-
-impl EncodeLabelValue for IpLabel {
-    fn encode(&self, encoder: &mut LabelValueEncoder) -> Result<(), std::fmt::Error> {
-        write!(encoder, "{}", self.0)
-    }
-}
-
-impl Debug for IpLabel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl From<SocketAddr> for Upstream {
-    fn from(value: SocketAddr) -> Self {
-        Upstream {
-            host: IpLabel(value.ip()),
-            port: value.port(),
-        }
-    }
 }
 
 #[derive(Default, Clone)]

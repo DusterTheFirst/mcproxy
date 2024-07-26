@@ -1,11 +1,11 @@
-use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
+use std::{ops::ControlFlow, sync::Arc, time::Duration};
 
 use tokio::{io, net::TcpStream, time::timeout};
 use tracing::{debug, error, field, trace, trace_span, warn, Instrument, Span};
 use tracing_error::TracedError;
 
 use crate::{
-    config::schema::Config,
+    config::schema::{Config, Upstream},
     proto::{
         io::{
             read_handshake,
@@ -38,7 +38,7 @@ pub async fn handle_connection(
     client_stream: &mut TcpStream,
     #[cfg(feature = "discovery")] discovered_servers: Arc<crate::discovery::DiscoveredServers>,
     #[cfg(feature = "metrics")] connection_metrics: crate::metrics::ConnectionMetrics,
-) -> Result<ControlFlow<(), (TcpStream, SocketAddr, Handshake)>, TracedError<io::Error>> {
+) -> Result<ControlFlow<(), (TcpStream, Upstream, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
     trace!("new connection");
 
@@ -48,25 +48,25 @@ pub async fn handle_connection(
     // First, the client sends a Handshake packet with its state set to 1.
     let (handshake, handshake_packet) = timeout_break!(PING_TIMEOUT, read_handshake(client_stream));
     debug!(
-        address = handshake.address,
+        address = handshake.address.as_ref(),
         port = handshake.port,
         protocol_version = handshake.protocol_version,
         next_state = ?handshake.next_state,
         "handshake received"
     );
-    Span::current().record("address", &handshake.address);
+    Span::current().record("address", handshake.address.as_ref());
     Span::current().record("next_state", handshake.next_state.to_string());
 
     #[cfg(feature = "metrics")]
     connection_metrics.client_handshakes_received.inc();
 
     // Handle mapping
-    let upstream = config.static_servers.get(&handshake.address).copied();
+    let upstream = config.static_servers.get(&handshake.address).cloned();
 
     #[cfg(feature = "discovery")]
     let upstream = upstream.or_else(|| {
         discovered_servers
-            .get_by_hostname(&handshake.address)
+            .get_by_hostname(handshake.address.clone())
             .map(|server| server.upstream())
     });
 
@@ -117,7 +117,7 @@ pub async fn handle_connection(
     };
     Span::current().record("upstream", upstream.to_string());
 
-    let mut server_stream = match TcpStream::connect(upstream)
+    let mut server_stream = match TcpStream::connect(upstream.addr())
         .instrument(trace_span!("connect_upstream"))
         .await
     {
@@ -176,7 +176,7 @@ pub async fn handle_connection(
     #[cfg(feature = "metrics")]
     connection_metrics
         .connection_established
-        .get_or_create(&upstream.into())
+        .get_or_create(&upstream.clone().into())
         .inc();
 
     // Forward the handshake to the upstream
