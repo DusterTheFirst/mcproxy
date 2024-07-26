@@ -44,6 +44,7 @@ jobs:
           push: true
           tags: ghcr.io/dusterthefirst/mcproxy:alpha
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
