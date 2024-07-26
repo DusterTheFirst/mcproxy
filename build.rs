@@ -28,9 +28,9 @@ fn main() {
     fs::write(out_dir.join("features.rs"), feature_code).unwrap();
 
     #[cfg(feature = "metrics")]
-    vergen_gix::Emitter::new()
+    vergen_gitcl::Emitter::new()
         .add_instructions(
-            &vergen_gix::GixBuilder::default()
+            &vergen_gitcl::GitclBuilder::default()
                 .sha(true)
                 .branch(true)
                 .build()

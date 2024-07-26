@@ -1,9 +1,6 @@
 *
-!/src
-!/.cargo
-!/Cargo.toml
-!/build.rs
-!/.git #for vergen
+
+!/target/docker/mcproxy
 
 **/*~
 **/*.log
