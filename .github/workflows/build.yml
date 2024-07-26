@@ -22,7 +22,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: cargo-bins/cargo-binstall@main
-      - run: cargo binstall cross
+      - run: cargo binstall cross -y
       - run: cross build --release --target="${{ matrix.target }}" --features="pid1,metrics"
 
       - name: Build and push
@@ -32,7 +32,7 @@ jobs:
           context: target/${{ matrix.target }}/release/
           platforms: linux/arm/v7 #linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/dusterthefirst/mcproxy:alpha
+          tags: ghcr.io/dusterthefirst/mcproxy:alpha-copy
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
