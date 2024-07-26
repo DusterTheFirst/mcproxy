@@ -1,4 +1,4 @@
-"$schema" = "../../target/schema/response.schema.json"
+"$schema" = "../../../target/schema/response.schema.json"
 
 # The favicon to show
 favicon = "../StructureVoidNew.png"

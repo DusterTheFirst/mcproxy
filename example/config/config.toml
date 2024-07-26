@@ -1,4 +1,4 @@
-"$schema" = "../target/schema/config.schema.json"
+"$schema" = "../../target/schema/config.schema.json"
 
 [ui]
 listen_address = "127.0.0.1:9876"
