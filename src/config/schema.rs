@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, path::PathBuf};
+use std::{collections::HashMap, net::SocketAddr};
 
 use serde::Deserialize;
 
@@ -13,8 +13,6 @@ pub struct GenericConfig<T: Marker> {
     pub placeholder_server: PlaceholderServerConfig<T>,
     /// The mapping of servers to their addresses
     pub static_servers: HashMap<String, SocketAddr>,
-    /// Server discovery configuration
-    pub discovery: Option<ServerDiscoveryConfig>,
     /// Setting for the UI Server
     ///
     /// Can not be live-reloaded
@@ -53,20 +51,6 @@ pub struct PlaceholderServerResponses<T: Marker> {
 pub struct UiServerConfig {
     /// Address to bind the HTTP server to
     pub listen_address: SocketAddr,
-}
-
-#[derive(Deserialize, Debug)]
-#[cfg_attr(test, derive(schemars::JsonSchema))]
-pub struct ServerDiscoveryConfig {
-    /// Configuration for docker service discovery
-    docker: Option<DockerServerDiscoveryConfig>,
-}
-
-#[derive(Deserialize, Debug)]
-#[cfg_attr(test, derive(schemars::JsonSchema))]
-pub struct DockerServerDiscoveryConfig {
-    /// Path to the docker socket
-    socket: PathBuf,
 }
 
 #[cfg(test)]

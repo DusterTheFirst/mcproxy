@@ -3,9 +3,6 @@
 [ui]
 listen_address = "127.0.0.1:9876"
 
-# [discovery.docker]
-# socket = "/var/run/docker.sock"
-
 # A map of server addresses
 [static_servers]
 "0.mcproxy.dusterthefirst.com" = "127.0.0.1:25570"

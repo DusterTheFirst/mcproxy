@@ -62,7 +62,6 @@ pub async fn load(path: &Path) -> Result<Config, TracedError<io::Error>> {
     let raw = load_toml::<GenericConfig<Raw>>(&config_file).await?;
 
     Ok(Config {
-        discovery: raw.discovery,
         ui: raw.ui,
         static_servers: raw.static_servers,
         proxy: raw.proxy,
