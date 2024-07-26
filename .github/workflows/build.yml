@@ -22,7 +22,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: cargo-bins/cargo-binstall@main
-      - run: cargo bininstall cross
+      - run: cargo binstall cross
       - run: cross build --release --target="${{ matrix.target }}" --features="pid1,metrics"
 
       - name: Build and push
