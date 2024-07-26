@@ -9,7 +9,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [armv7-unknown-linux-musleabihf]
+        target:
+          - rust: armv7-unknown-linux-musleabihf
+            docker: linux/arm/v7
     steps:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -25,16 +27,16 @@ jobs:
       - run: cargo binstall cross -y
 
       - uses: actions/checkout@v4
-      - run: cross build --release --target="${{ matrix.target }}" --features="pid1,metrics"
+      - run: cross build --release --target="${{ matrix.target.rust }}" --features="pid1,metrics"
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           file: Dockerfile
-          context: target/${{ matrix.target }}/release/
-          platforms: linux/arm/v7 #linux/amd64,linux/arm64
+          context: target/${{ matrix.target.rust }}/release/
+          platforms: ${{ matrix.target.docker }} #linux/amd64,linux/arm64
           push: true
-          tags: ghcr.io/dusterthefirst/mcproxy:alpha-copy
+          tags: ghcr.io/dusterthefirst/mcproxy:alpha
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
