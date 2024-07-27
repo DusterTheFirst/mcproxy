@@ -7,14 +7,13 @@ use std::{
 
 use axum::{
     extract::State,
-    http::{header, StatusCode},
+    http::{header, HeaderName, HeaderValue, StatusCode},
     routing::method_routing,
 };
-use prometheus_client::{encoding, registry::Registry};
 use tokio::{
     io::{self},
     net::TcpListener,
-    sync::watch::Sender,
+    sync::watch::{Receiver, Sender},
 };
 use tracing::{debug, info};
 use tracing_error::{InstrumentError, TracedError};
@@ -28,7 +27,8 @@ pub async fn listen(
     config: UiServerConfig,
     config_path: PathBuf,
     sender: Sender<Arc<Config>>,
-    #[cfg(feature = "metrics")] registry: &'static Registry,
+    config_receiver: Receiver<Arc<Config>>,
+    #[cfg(feature = "metrics")] registry: &'static prometheus_client::registry::Registry,
 ) -> Result<(), TracedError<io::Error>> {
     let router = axum::Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -37,10 +37,17 @@ pub async fn listen(
             method_routing::post(config_reload).with_state((sender, Arc::from(config_path))),
         )
         .route(
-            "/metrics",
-            method_routing::get(|State::<&'static Registry>(registry)| async move {
+            "/-/config",
+            method_routing::get(print_config).with_state(config_receiver),
+        );
+
+    #[cfg(feature = "metrics")]
+    let router = router.route(
+        "/metrics",
+        method_routing::get(
+            |State::<&'static prometheus_client::registry::Registry>(registry)| async move {
                 let mut output = String::new();
-                match encoding::text::encode(&mut output, registry) {
+                match prometheus_client::encoding::text::encode(&mut output, registry) {
                     Ok(()) => Ok((
                         [(
                             header::CONTENT_TYPE,
@@ -50,9 +57,10 @@ pub async fn listen(
                     )),
                     Err(error) => Err((StatusCode::INTERNAL_SERVER_ERROR, error.to_string())),
                 }
-            })
-            .with_state(registry),
-        );
+            },
+        )
+        .with_state(registry),
+    );
 
     let socket = TcpListener::bind(config.listen_address).await?;
 
@@ -60,6 +68,22 @@ pub async fn listen(
     axum::serve(socket, router)
         .await
         .map_err(InstrumentError::in_current_span)
+}
+
+#[axum::debug_handler]
+async fn print_config(
+    State(config): State<Receiver<Arc<Config>>>,
+) -> (
+    [(axum::http::HeaderName, axum::http::HeaderValue); 1],
+    std::string::String,
+) {
+    (
+        [(
+            HeaderName::from_static("content-type"),
+            HeaderValue::from_static("text/plain"),
+        )],
+        format!("{:#?}", *config.borrow()),
+    )
 }
 
 #[tracing::instrument(skip_all)]

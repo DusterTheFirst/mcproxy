@@ -58,25 +58,26 @@ async fn main() -> eyre::Result<()> {
         .next()
         .as_ref()
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("./example/config.toml"));
+        .unwrap_or_else(|| PathBuf::from("./example/config/config.toml"));
 
     // TODO: command line options
     info!("loading config file");
     let initial_config: Arc<Config> = Arc::new(config::load(&config_file).await?);
     let (config_sender, config) = tokio::sync::watch::channel(initial_config.clone());
     // let config = task::spawn(config::watch(config_file));
-    if let Some(config) = initial_config.ui {
+    if let Some(ui_config) = initial_config.ui {
         #[cfg(feature = "ui")]
         task::spawn(ui::listen(
-            config,
+            ui_config,
             config_file,
             config_sender,
+            config.clone(),
             #[cfg(feature = "metrics")]
             registry,
         ));
 
         #[cfg(not(feature = "ui"))]
-        let _ = (config_sender, config);
+        let _ = (config_sender, ui_config);
     }
 
     #[cfg(feature = "discovery")]

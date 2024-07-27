@@ -5,7 +5,10 @@ use tokio::{
 };
 use tracing_error::{InstrumentResult, TracedError};
 
-use crate::{config::schema::Hostname, proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet}};
+use crate::{
+    config::schema::Hostname,
+    proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet},
+};
 
 pub mod response;
 

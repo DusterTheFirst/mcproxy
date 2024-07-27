@@ -16,7 +16,7 @@ pub trait Marker: private::Sealed {
     type PointerType: DeserializeOwned + schemars::JsonSchema + Debug;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Raw {}
 impl private::Sealed for Raw {}
@@ -24,7 +24,7 @@ impl Marker for Raw {
     type PointerType = PathBuf;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Elaborated {}
 impl private::Sealed for Elaborated {}
