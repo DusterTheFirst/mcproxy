@@ -7,7 +7,7 @@ use std::{
 
 use axum::{
     extract::State,
-    http::{header, HeaderName, HeaderValue, StatusCode},
+    http::{header, HeaderValue, StatusCode},
     routing::method_routing,
 };
 use tokio::{
@@ -51,7 +51,9 @@ pub async fn listen(
                     Ok(()) => Ok((
                         [(
                             header::CONTENT_TYPE,
-                            header::HeaderValue::from_static("text/plain; version=0.0.4"),
+                            header::HeaderValue::from_static(
+                                "application/openmetrics-text; version=1.0.0; charset=utf-8",
+                            ),
                         )],
                         output,
                     )),
@@ -78,10 +80,7 @@ async fn print_config(
     std::string::String,
 ) {
     (
-        [(
-            HeaderName::from_static("content-type"),
-            HeaderValue::from_static("text/plain"),
-        )],
+        [(header::CONTENT_TYPE, HeaderValue::from_static("text/plain"))],
         format!("{:#?}", *config.borrow()),
     )
 }
