@@ -7,8 +7,8 @@ repository = "https://github.com/dusterthefirst/mcproxy"
 version    = "0.1.0"
 
 [profile.release]
-# debug = "line-tables-only"
-debug = "limited"
+debug = "line-tables-only"
+# debug = "limited"
 lto   = "thin"
 
 [features]
@@ -16,7 +16,7 @@ lto   = "thin"
 autometrics = ["dep:autometrics", "dep:vergen-gitcl", "metrics"]
 
 # metrics
-metrics = ["dep:prometheus-client", "dep:vergen-gitcl"]
+metrics = ["dep:prometheus-client", "dep:tokio-metrics", "dep:vergen-gitcl"]
 
 # ui
 ui = ["dep:axum", "dep:tower-http"]
@@ -48,13 +48,14 @@ autometrics = { version = "2.0.0", features = ["prometheus-client-0_22"], option
 
 # metrics
 prometheus-client = { version = "0.22.2", optional = true }
+tokio-metrics = { version = "0.3.1", optional = true }
 
 # ui
 axum       = { version = "0.7.5", default-features = false, features = ["http1", "macros", "tokio", "tracing"], optional = true }
 tower-http = { version = "0.5.2", features = ["trace"], optional = true }
 
 # tokio-console
-console-subscriber = { version = "0.3.0", optional = true }
+console-subscriber = { version = "0.4.0", optional = true }
 
 # telemetry
 opentelemetry                      = { version = "0.24.0", optional = true }
@@ -64,7 +65,7 @@ opentelemetry_sdk                  = { version = "0.24.1", features = ["rt-tokio
 tracing-opentelemetry              = { version = "0.25.0", optional = true }
 
 # docker discovery
-bollard      = { version = "0.16.1", optional = true }
+bollard      = { version = "0.17.0", optional = true }
 dashmap      = { version = "6.0.1", optional = true }
 tokio-stream = { version = "0.1.15", optional = true }
 

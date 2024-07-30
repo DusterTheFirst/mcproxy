@@ -5,8 +5,11 @@ use prometheus_client::{
     metrics::{counter::Counter, family::Family, gauge::Gauge, info::Info},
     registry::Registry,
 };
+use tokio_collector::TokioRuntimeCollector;
 
 use crate::config::schema::Upstream;
+
+mod tokio_collector;
 
 /// These are the labels used for the `build_info` metric.
 #[derive(EncodeLabelSet, Debug, Clone, PartialEq, Eq, Hash)]
@@ -80,6 +83,9 @@ pub fn create_metrics() -> (Registry, ConnectionMetrics, ActiveConnectionMetrics
         "amount of active outgoing connections to minecraft servers",
         active_connection_metrics.active_server_connections.clone(),
     );
+
+    // Tokio Runtime Metrics
+    registry.register_collector(Box::new(TokioRuntimeCollector::new()));
 
     (registry, connection_metrics, active_connection_metrics)
 }
