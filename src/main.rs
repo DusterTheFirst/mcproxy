@@ -33,7 +33,7 @@ async fn main() -> eyre::Result<()> {
     init_tracing_subscriber();
 
     #[cfg(feature = "metrics")]
-    let (registry, connection_metrics, active_connection_metrics) = metrics::create_metrics();
+    let (registry, connection_metrics, active_connection_metrics, proxy_task_monitor) = metrics::create_metrics();
 
     #[cfg(feature = "autometrics")]
     let autometrics = autometrics::settings::AutometricsSettings::builder()
@@ -158,6 +158,9 @@ async fn main() -> eyre::Result<()> {
                     };
                 }
                 .instrument(trace_span!("connection"));
+
+                #[cfg(feature = "metrics")]
+                let task = tokio_metrics::TaskMonitor::instrument(&proxy_task_monitor, task);
 
                 #[cfg(feature = "tokio-console")]
                 task::Builder::new()
