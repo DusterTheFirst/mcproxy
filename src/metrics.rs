@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use crate::metrics::tokio_collector::runtime::TokioRuntimeCollector;
 use prometheus_client::{
     encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, gauge::Gauge, info::Info},
@@ -7,7 +8,6 @@ use prometheus_client::{
 };
 use tokio_collector::task::TokioTaskCollector;
 use tokio_metrics::TaskMonitor;
-use crate::metrics::tokio_collector::runtime::TokioRuntimeCollector;
 
 use crate::config::schema::Upstream;
 
@@ -37,7 +37,12 @@ pub struct ActiveConnectionMetrics {
     pub active_server_connections: Family<Upstream, Gauge>,
 }
 
-pub fn create_metrics() -> (Registry, ConnectionMetrics, ActiveConnectionMetrics, TaskMonitor) {
+pub fn create_metrics() -> (
+    Registry,
+    ConnectionMetrics,
+    ActiveConnectionMetrics,
+    TaskMonitor,
+) {
     let mut registry = Registry::default();
 
     registry.register(
@@ -90,7 +95,15 @@ pub fn create_metrics() -> (Registry, ConnectionMetrics, ActiveConnectionMetrics
     registry.register_collector(Box::new(TokioRuntimeCollector::new()));
 
     let proxy_task_monitor = TaskMonitor::new();
-    registry.register_collector(Box::new(TokioTaskCollector::new("proxy", &proxy_task_monitor)));
+    registry.register_collector(Box::new(TokioTaskCollector::new(
+        "proxy",
+        &proxy_task_monitor,
+    )));
 
-    (registry, connection_metrics, active_connection_metrics, proxy_task_monitor)
+    (
+        registry,
+        connection_metrics,
+        active_connection_metrics,
+        proxy_task_monitor,
+    )
 }

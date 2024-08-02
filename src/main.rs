@@ -33,7 +33,8 @@ async fn main() -> eyre::Result<()> {
     init_tracing_subscriber();
 
     #[cfg(feature = "metrics")]
-    let (registry, connection_metrics, active_connection_metrics, proxy_task_monitor) = metrics::create_metrics();
+    let (registry, connection_metrics, active_connection_metrics, proxy_task_monitor) =
+        metrics::create_metrics();
 
     #[cfg(feature = "autometrics")]
     let autometrics = autometrics::settings::AutometricsSettings::builder()
