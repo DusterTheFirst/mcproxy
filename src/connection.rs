@@ -1,11 +1,13 @@
 use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 
+use mcproxy_model::Upstream;
 use tokio::{io, net::TcpStream, time::timeout};
-use tracing::{debug, error, field, trace, trace_span, warn, Instrument, Span};
+use tracing::Instrument;
+use tracing::{debug, error, field, trace, trace_span, warn, Span};
 use tracing_error::TracedError;
 
 use crate::{
-    config::schema::{Config, Upstream},
+    config::schema::Config,
     proto::{
         io::{
             read_handshake,
@@ -36,7 +38,6 @@ pub async fn handle_connection(
     peer: SocketAddr,
     config: Arc<Config>,
     client_stream: &mut TcpStream,
-    #[cfg(feature = "discovery")] discovered_servers: Arc<crate::discovery::DiscoveredServers>,
     #[cfg(feature = "metrics")] connection_metrics: crate::metrics::ConnectionMetrics,
 ) -> Result<ControlFlow<(), (TcpStream, Upstream, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
@@ -62,13 +63,6 @@ pub async fn handle_connection(
 
     // Handle mapping
     let upstream = config.static_servers.get(&handshake.address).cloned();
-
-    #[cfg(feature = "discovery")]
-    let upstream = upstream.or_else(|| {
-        discovered_servers
-            .get_by_hostname(handshake.address.clone())
-            .map(|server| server.upstream())
-    });
 
     let upstream = match upstream {
         Some(a) => a,

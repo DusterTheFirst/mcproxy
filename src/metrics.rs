@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::metrics::tokio_collector::runtime::TokioRuntimeCollector;
+use mcproxy_model::Upstream;
 use prometheus_client::{
     encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, gauge::Gauge, info::Info},
@@ -8,8 +9,6 @@ use prometheus_client::{
 };
 use tokio_collector::task::TokioTaskCollector;
 use tokio_metrics::TaskMonitor;
-
-use crate::config::schema::Upstream;
 
 mod tokio_collector;
 

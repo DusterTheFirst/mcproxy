@@ -15,13 +15,11 @@ use bollard::{
     system::EventsOptions,
 };
 use eyre::Context;
+use mcproxy_model::Upstream;
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, warn};
 
-use crate::{
-    config::schema::Upstream,
-    discovery::{ActiveServer, DiscoveredServers, ServerId, ServerInsertionError},
-};
+use crate::discovery::{ActiveServer, DiscoveredServers, ServerId, ServerInsertionError};
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct ContainerId([u8; 32]);

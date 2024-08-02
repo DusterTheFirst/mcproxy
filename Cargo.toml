@@ -9,14 +9,14 @@ version    = "0.1.0"
 [profile.release]
 debug = "line-tables-only"
 # debug = "limited"
-lto   = "thin"
+lto = "thin"
 
 [features]
 # Autometrics
 autometrics = ["dep:autometrics", "dep:vergen-gitcl", "metrics"]
 
 # metrics
-metrics = ["dep:prometheus-client", "dep:tokio-metrics", "dep:vergen-gitcl"]
+metrics = ["mcproxy_model/metrics", "dep:prometheus-client", "dep:tokio-metrics", "dep:vergen-gitcl"]
 
 # ui
 ui = ["dep:axum", "dep:tower-http"]
@@ -24,22 +24,35 @@ ui = ["dep:axum", "dep:tower-http"]
 # Enable signal handling when running as pid1
 pid1 = []
 
-# Discovery
-discovery        = []
-discovery-docker = ["dep:bollard", "dep:dashmap", "dep:tokio-stream", "discovery"]
-
 # Observability
 telemetry     = ["dep:opentelemetry", "dep:opentelemetry-otlp", "dep:opentelemetry-semantic-conventions", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry"]
 tokio-console = ["dep:console-subscriber"]
 
+[workspace]
+members = ["crates/*"]
+
+[workspace.dependencies]
+schemars = { version = "1.0.0-alpha.2" }
+
+eyre    = "0.6.12"
+serde   = { version = "1.0", features = ["derive", "rc"] }
+tokio   = { version = "1.38.0", features = ["full", "macros"] }
+tracing = "0.1.40"
+
+prometheus-client = { version = "0.22.2" }
+
+mcproxy_discovery = { path = "./crates/discovery" }
+mcproxy_model     = { path = "./crates/model" }
+
 [dependencies]
 base64             = "0.22.1"
-eyre               = "0.6.12"
-serde              = { version = "1.0", features = ["derive", "rc"] }
+eyre               = { workspace = true }
+mcproxy_model      = { workspace = true }
+serde              = { workspace = true }
 serde_json         = "1.0"
-tokio              = { version = "1.38.0", features = ["full", "macros"] }
+tokio              = { workspace = true }
 toml               = { version = "0.8.14", default-features = false, features = ["parse"] }
-tracing            = "0.1.40"
+tracing            = { workspace = true }
 tracing-error      = { version = "0.2.0", features = ["traced-error"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
@@ -47,8 +60,8 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 autometrics = { version = "2.0.0", features = ["prometheus-client-0_22"], optional = true }
 
 # metrics
-prometheus-client = { version = "0.22.2", optional = true }
-tokio-metrics = { version = "0.3.1", optional = true }
+prometheus-client = { workspace = true, optional = true }
+tokio-metrics     = { version = "0.3.1", optional = true }
 
 # ui
 axum       = { version = "0.7.5", default-features = false, features = ["http1", "macros", "tokio", "tracing"], optional = true }
@@ -64,13 +77,8 @@ opentelemetry-semantic-conventions = { version = "0.16.0", optional = true }
 opentelemetry_sdk                  = { version = "0.24.1", features = ["rt-tokio"], optional = true }
 tracing-opentelemetry              = { version = "0.25.0", optional = true }
 
-# docker discovery
-bollard      = { version = "0.17.0", optional = true }
-dashmap      = { version = "6.0.1", optional = true }
-tokio-stream = { version = "0.1.15", optional = true }
-
 [dev-dependencies]
-schemars = { version = "1.0.0-alpha.2" }
+schemars.workspace = true
 
 [build-dependencies]
 vergen-gitcl = { version = "1.0.0", optional = true }

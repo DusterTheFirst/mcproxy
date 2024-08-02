@@ -1,0 +1,19 @@
+[package]
+edition = "2021"
+name    = "mcproxy_discovery"
+version = "0.1.0"
+
+[features]
+docker = ["dep:bollard", "dep:tokio-stream"]
+
+[dependencies]
+eyre          = { workspace = true }
+mcproxy_model = { workspace = true }
+tokio         = { workspace = true }
+tracing       = { workspace = true }
+
+dashmap = "6.0.1"
+
+# Docker
+bollard      = { version = "0.17.0", optional = true }
+tokio-stream = { version = "0.1.15", optional = true }

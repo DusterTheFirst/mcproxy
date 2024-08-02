@@ -1,0 +1,12 @@
+[package]
+edition = "2021"
+name    = "mcproxy_model"
+version = "0.1.0"
+
+[features]
+metrics = ["dep:prometheus-client"]
+
+[dependencies]
+prometheus-client = { workspace = true, optional = true }
+schemars          = { workspace = true }
+serde             = { workspace = true }

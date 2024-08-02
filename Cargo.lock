@@ -987,10 +987,9 @@ dependencies = [
  "autometrics",
  "axum",
  "base64 0.22.1",
- "bollard",
  "console-subscriber",
- "dashmap",
  "eyre",
+ "mcproxy_model",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
@@ -1001,7 +1000,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-metrics",
- "tokio-stream",
  "toml",
  "tower-http",
  "tracing",
@@ -1009,6 +1007,28 @@ dependencies = [
  "tracing-opentelemetry",
  "tracing-subscriber",
  "vergen-gitcl",
+]
+
+[[package]]
+name = "mcproxy_discovery"
+version = "0.1.0"
+dependencies = [
+ "bollard",
+ "dashmap",
+ "eyre",
+ "mcproxy_model",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+]
+
+[[package]]
+name = "mcproxy_model"
+version = "0.1.0"
+dependencies = [
+ "prometheus-client",
+ "schemars",
+ "serde",
 ]
 
 [[package]]

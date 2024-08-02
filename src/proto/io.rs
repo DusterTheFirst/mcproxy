@@ -1,14 +1,12 @@
 use std::convert::TryInto;
+use mcproxy_model::Hostname;
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
 };
 use tracing_error::{InstrumentResult, TracedError};
 
-use crate::{
-    config::schema::Hostname,
-    proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet},
-};
+use crate::proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet};
 
 pub mod response;
 

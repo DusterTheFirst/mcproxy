@@ -13,8 +13,6 @@ mod proto;
 mod proxy_server;
 mod trace;
 
-#[cfg(feature = "discovery")]
-mod discovery;
 #[cfg(feature = "metrics")]
 mod metrics;
 #[cfg(feature = "pid1")]
@@ -81,9 +79,6 @@ async fn main() -> eyre::Result<()> {
         let _ = (config_sender, ui_config);
     }
 
-    #[cfg(feature = "discovery")]
-    let discovered_servers = discovery::begin().await;
-
     let listener = TcpListener::bind(initial_config.proxy.listen_address)
         .await
         .expect("Unable to bind to socket");
@@ -103,8 +98,6 @@ async fn main() -> eyre::Result<()> {
             Ok((mut client_stream, _address)) => {
                 // Clone pointers to the address map and server responses
                 let config = config.borrow().clone();
-                #[cfg(feature = "discovery")]
-                let discovered_servers = discovered_servers.clone(); // TODO:
                 #[cfg(feature = "metrics")]
                 let (connection_metrics, active_connection_metrics) = (
                     connection_metrics.clone(),
@@ -121,8 +114,6 @@ async fn main() -> eyre::Result<()> {
                         peer,
                         config,
                         &mut client_stream,
-                        #[cfg(feature = "discovery")]
-                        discovered_servers,
                         #[cfg(feature = "metrics")]
                         connection_metrics,
                     )

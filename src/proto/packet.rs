@@ -1,7 +1,6 @@
+use mcproxy_model::Hostname;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display, Formatter};
-
-use crate::config::schema::Hostname;
 
 #[derive(Debug)]
 pub struct Packet {

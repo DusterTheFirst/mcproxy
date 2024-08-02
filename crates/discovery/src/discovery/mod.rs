@@ -6,9 +6,9 @@ use std::{
 
 use dashmap::DashMap;
 
-use crate::config::schema::{Hostname, Upstream};
+use mcproxy_model::{Hostname, Upstream};
 
-#[cfg(feature = "discovery-docker")]
+#[cfg(feature = "docker")]
 mod docker;
 
 #[derive(Debug)]
@@ -26,7 +26,8 @@ impl ActiveServer {
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum ServerId {
-    #[cfg(feature = "discovery-docker")]
+    // TODO: extract this and all other generic discovery to other crate
+    #[cfg(feature = "docker")]
     Docker(docker::ContainerId),
 }
 
@@ -39,7 +40,7 @@ impl Debug for ServerId {
 impl Display for ServerId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            #[cfg(feature = "discovery-docker")]
+            #[cfg(feature = "docker")]
             Self::Docker(id) => write!(f, "docker:{id}"),
         }
     }
@@ -156,7 +157,7 @@ pub async fn begin() -> Arc<DiscoveredServers> {
 
     let discovered_servers = Arc::new(DiscoveredServers::default());
 
-    #[cfg(feature = "discovery-docker")]
+    #[cfg(feature = "docker")]
     tokio::task::spawn({
         let discovered_servers = discovered_servers.clone();
 
