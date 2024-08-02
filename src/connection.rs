@@ -125,7 +125,7 @@ pub async fn handle_connection(
             #[cfg(feature = "metrics")]
             connection_metrics
                 .connection_can_not_reach_upstream
-                .get_or_create(&upstream.into())
+                .get_or_create(&upstream)
                 .inc();
 
             match handshake.next_state {
@@ -170,7 +170,7 @@ pub async fn handle_connection(
     #[cfg(feature = "metrics")]
     connection_metrics
         .connection_established
-        .get_or_create(&upstream.clone().into())
+        .get_or_create(&upstream.clone())
         .inc();
 
     // Forward the handshake to the upstream
