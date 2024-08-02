@@ -12,6 +12,8 @@ debug = "line-tables-only"
 lto = "thin"
 
 [features]
+default = ["metrics", "ui"]
+
 # Autometrics
 autometrics = ["dep:autometrics", "dep:vergen-gitcl", "metrics"]
 
