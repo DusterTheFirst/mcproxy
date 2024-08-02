@@ -111,13 +111,13 @@ async fn main() -> eyre::Result<()> {
                 );
 
                 // Get the connection id
-                let connection_id = client_stream.peer_addr().unwrap().port();
+                let peer = client_stream.peer_addr().unwrap();
 
                 // Fork off the connection handling
                 let task = async move {
                     // Handle the connection
                     match handle_connection(
-                        connection_id,
+                        peer,
                         config,
                         &mut client_stream,
                         #[cfg(feature = "discovery")]
@@ -139,7 +139,7 @@ async fn main() -> eyre::Result<()> {
                                 .start()
                                 .instrument(trace_span!(
                                     "proxy",
-                                    connection=connection_id,
+                                    peer=%peer,
                                     address = handshake.address.as_ref(),
                                     next_state = %handshake.next_state
                                 ))
@@ -164,7 +164,7 @@ async fn main() -> eyre::Result<()> {
 
                 #[cfg(feature = "tokio-console")]
                 task::Builder::new()
-                    .name(&connection_id.to_string())
+                    .name(&peer.to_string())
                     .spawn(task)
                     .unwrap();
 

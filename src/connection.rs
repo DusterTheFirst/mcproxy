@@ -1,4 +1,4 @@
-use std::{ops::ControlFlow, sync::Arc, time::Duration};
+use std::{net::SocketAddr, ops::ControlFlow, sync::Arc, time::Duration};
 
 use tokio::{io, net::TcpStream, time::timeout};
 use tracing::{debug, error, field, trace, trace_span, warn, Instrument, Span};
@@ -31,9 +31,9 @@ macro_rules! timeout_break {
     };
 }
 
-#[tracing::instrument(name="routing", skip_all, fields(connection=connection_id, address=field::Empty, next_state=field::Empty, upstream=field::Empty))]
+#[tracing::instrument(name="routing", skip_all, fields(peer=%peer,address=field::Empty, next_state=field::Empty, upstream=field::Empty))]
 pub async fn handle_connection(
-    connection_id: u16,
+    peer: SocketAddr,
     config: Arc<Config>,
     client_stream: &mut TcpStream,
     #[cfg(feature = "discovery")] discovered_servers: Arc<crate::discovery::DiscoveredServers>,
