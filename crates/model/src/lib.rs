@@ -119,7 +119,6 @@ impl<'d> Deserialize<'d> for Upstream {
     }
 }
 
-#[cfg(test)]
 impl schemars::JsonSchema for Upstream {
     fn schema_name() -> std::borrow::Cow<'static, str> {
         "Upstream".into()
