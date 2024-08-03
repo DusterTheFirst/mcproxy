@@ -1,5 +1,5 @@
-use std::convert::TryInto;
 use mcproxy_model::Hostname;
+use std::convert::TryInto;
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
