@@ -54,7 +54,11 @@ pub async fn handle_connection(
     debug!(
         port = handshake.port,
         protocol_version = handshake.protocol_version,
-        forge_version = handshake.address_forge_version.as_ref().map(|a| a as &dyn tracing::Value).unwrap_or(&field::Empty),
+        forge_version = handshake
+            .address_forge_version
+            .as_ref()
+            .map(|a| a as &dyn tracing::Value)
+            .unwrap_or(&field::Empty),
         "handshake received"
     );
 

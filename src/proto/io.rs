@@ -67,7 +67,7 @@ pub async fn read_handshake(
 
     let mut parts = address.split_terminator('\0');
     let address = parts.next().expect("first part should always exist");
-    let address_forge = parts.next(); // https://wiki.vg/Minecraft_Forge_Handshake#Connection_to_a_forge_server
+    let address_forge = parts.next(); // https://wiki.vg/Minecraft_Forge_Handshake#Changes_to_Handshake_packet
     assert_eq!(parts.next(), None);
 
     Ok((

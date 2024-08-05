@@ -37,11 +37,8 @@ async fn main() -> eyre::Result<()> {
     info!(features=?ENABLED_FEATURES, "proxy starting");
 
     let mut args = std::env::args_os();
-    let executable_name = args
-        .next()
-        .expect("first argument should be name of executable");
     let config_file = args
-        .next()
+        .nth(1)
         .as_ref()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("./example/config/config.toml"));

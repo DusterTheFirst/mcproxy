@@ -44,23 +44,21 @@ pub async fn listen(
     #[cfg(feature = "metrics")]
     let router = router.route(
         "/metrics",
-        method_routing::get(
-            |State::<Arc<_>>(registry)| async move {
-                let mut output = String::new();
-                match prometheus_client::encoding::text::encode(&mut output, &registry) {
-                    Ok(()) => Ok((
-                        [(
-                            header::CONTENT_TYPE,
-                            header::HeaderValue::from_static(
-                                "application/openmetrics-text; version=1.0.0; charset=utf-8",
-                            ),
-                        )],
-                        output,
-                    )),
-                    Err(error) => Err((StatusCode::INTERNAL_SERVER_ERROR, error.to_string())),
-                }
-            },
-        )
+        method_routing::get(|State::<Arc<_>>(registry)| async move {
+            let mut output = String::new();
+            match prometheus_client::encoding::text::encode(&mut output, &registry) {
+                Ok(()) => Ok((
+                    [(
+                        header::CONTENT_TYPE,
+                        header::HeaderValue::from_static(
+                            "application/openmetrics-text; version=1.0.0; charset=utf-8",
+                        ),
+                    )],
+                    output,
+                )),
+                Err(error) => Err((StatusCode::INTERNAL_SERVER_ERROR, error.to_string())),
+            }
+        })
         .with_state(Arc::new(registry)),
     );
 
