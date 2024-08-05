@@ -28,7 +28,7 @@ pub async fn listen(
     config_path: PathBuf,
     sender: Sender<Arc<Config>>,
     config_receiver: Receiver<Arc<Config>>,
-    #[cfg(feature = "metrics")] registry: &'static prometheus_client::registry::Registry,
+    #[cfg(feature = "metrics")] registry: prometheus_client::registry::Registry,
 ) -> Result<(), TracedError<io::Error>> {
     let router = axum::Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
@@ -45,9 +45,9 @@ pub async fn listen(
     let router = router.route(
         "/metrics",
         method_routing::get(
-            |State::<&'static prometheus_client::registry::Registry>(registry)| async move {
+            |State::<Arc<_>>(registry)| async move {
                 let mut output = String::new();
-                match prometheus_client::encoding::text::encode(&mut output, registry) {
+                match prometheus_client::encoding::text::encode(&mut output, &registry) {
                     Ok(()) => Ok((
                         [(
                             header::CONTENT_TYPE,
@@ -61,7 +61,7 @@ pub async fn listen(
                 }
             },
         )
-        .with_state(registry),
+        .with_state(Arc::new(registry)),
     );
 
     let socket = TcpListener::bind(config.listen_address).await?;

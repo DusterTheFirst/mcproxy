@@ -9,7 +9,6 @@ use crate::proto::{io::write_packet, response::StatusResponse, string, TextCompo
 use super::{read_packet, read_ping_request, write_pong_response, write_status_response};
 
 #[tracing::instrument(skip_all, err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn ping_response(
     client_stream: &mut TcpStream,
     response: Option<&StatusResponse>,
@@ -36,7 +35,6 @@ pub async fn ping_response(
 }
 
 #[tracing::instrument(skip_all, err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn login_response(
     client_stream: &mut TcpStream,
     response: Option<&TextComponent>,

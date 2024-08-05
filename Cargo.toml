@@ -14,9 +14,6 @@ lto = "thin"
 [features]
 default = ["metrics", "ui"]
 
-# Autometrics
-autometrics = ["dep:autometrics", "dep:vergen-gitcl", "metrics"]
-
 # metrics
 metrics = ["mcproxy_model/metrics", "dep:prometheus-client", "dep:tokio-metrics", "dep:vergen-gitcl"]
 
@@ -57,9 +54,6 @@ toml               = { version = "0.8.14", default-features = false, features = 
 tracing            = { workspace = true }
 tracing-error      = { version = "0.2.0", features = ["traced-error"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-
-# autometrics
-autometrics = { version = "2.0.0", features = ["prometheus-client-0_22"], optional = true }
 
 # metrics
 prometheus-client = { workspace = true, optional = true }

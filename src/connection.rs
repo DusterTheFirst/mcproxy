@@ -33,7 +33,7 @@ macro_rules! timeout_break {
     };
 }
 
-#[tracing::instrument(name="routing", skip_all, fields(peer=%peer,address=field::Empty, next_state=field::Empty, upstream=field::Empty))]
+#[tracing::instrument(name="routing", skip_all, fields(peer=%peer, address=field::Empty, next_state=field::Empty, upstream=field::Empty))]
 pub async fn handle_connection(
     peer: SocketAddr,
     config: Arc<Config>,
@@ -48,15 +48,15 @@ pub async fn handle_connection(
 
     // First, the client sends a Handshake packet with its state set to 1.
     let (handshake, handshake_packet) = timeout_break!(PING_TIMEOUT, read_handshake(client_stream));
-    debug!(
-        address = handshake.address.as_ref(),
-        port = handshake.port,
-        protocol_version = handshake.protocol_version,
-        next_state = ?handshake.next_state,
-        "handshake received"
-    );
+
     Span::current().record("address", handshake.address.as_ref());
     Span::current().record("next_state", handshake.next_state.to_string());
+    debug!(
+        port = handshake.port,
+        protocol_version = handshake.protocol_version,
+        forge_version = handshake.address_forge_version.as_ref().map(|a| a as &dyn tracing::Value).unwrap_or(&field::Empty),
+        "handshake received"
+    );
 
     #[cfg(feature = "metrics")]
     connection_metrics.client_handshakes_received.inc();

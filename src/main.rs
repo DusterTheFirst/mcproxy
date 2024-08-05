@@ -34,19 +34,6 @@ async fn main() -> eyre::Result<()> {
     let (registry, connection_metrics, active_connection_metrics, proxy_task_monitor) =
         metrics::create_metrics();
 
-    #[cfg(feature = "autometrics")]
-    let autometrics = autometrics::settings::AutometricsSettings::builder()
-        .repo_url(env!("CARGO_PKG_REPOSITORY"))
-        .service_name(env!("CARGO_PKG_NAME"))
-        .prometheus_client_registry(registry)
-        .init();
-
-    #[cfg(feature = "autometrics")]
-    let registry = autometrics.prometheus_client_registry();
-
-    #[cfg(all(feature = "metrics", not(feature = "autometrics")))]
-    let registry = Box::leak(Box::new(registry));
-
     info!(features=?ENABLED_FEATURES, "proxy starting");
 
     let mut args = std::env::args_os();

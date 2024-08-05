@@ -12,7 +12,6 @@ pub mod response;
 
 /// Write a packet and output its data
 #[tracing::instrument(skip(stream, data), fields(len=data.len()), err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn write_packet(
     stream: &mut TcpStream,
     id: i32,
@@ -37,7 +36,6 @@ pub async fn write_packet(
 
 /// Read a packet and output its data
 #[tracing::instrument(skip(stream), err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn read_packet(stream: &mut TcpStream) -> Result<Packet, TracedError<io::Error>> {
     let length = var_int::read(stream).await.in_current_span()?.value;
     let id = var_int::read(stream).await.in_current_span()?;
@@ -54,12 +52,11 @@ pub async fn read_packet(stream: &mut TcpStream) -> Result<Packet, TracedError<i
 
 /// Read the handshake packet in and return the data from it
 #[tracing::instrument(skip(stream), err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn read_handshake(
     stream: &mut TcpStream,
 ) -> Result<(Handshake, Packet), TracedError<io::Error>> {
     let packet = read_packet(stream).await?;
-    assert_eq!(packet.id, 0x00);
+    assert_eq!(packet.id, 0x00); // FIXME: should I panic?
     let mut data_buf = packet.data.as_slice();
 
     // Get the protocol version
@@ -68,10 +65,16 @@ pub async fn read_handshake(
     let port = data_buf.read_u16().await.in_current_span()?;
     let next_state = var_int::read(&mut data_buf).await.in_current_span()?.value;
 
+    let mut parts = address.split_terminator('\0');
+    let address = parts.next().expect("first part should always exist");
+    let address_forge = parts.next(); // https://wiki.vg/Minecraft_Forge_Handshake#Connection_to_a_forge_server
+    assert_eq!(parts.next(), None);
+
     Ok((
         Handshake {
             protocol_version,
             address: Hostname::from(address),
+            address_forge_version: address_forge.map(String::from),
             port,
             next_state: NextState::from(next_state),
         },
@@ -80,7 +83,6 @@ pub async fn read_handshake(
 }
 
 #[tracing::instrument(skip(stream), err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedError<io::Error>> {
     let packet = read_packet(stream).await?;
     assert_eq!(packet.id, 0x01);
@@ -92,7 +94,6 @@ pub async fn read_ping_request(stream: &mut TcpStream) -> Result<i64, TracedErro
 }
 
 #[tracing::instrument(skip(stream), err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn write_status_response(
     stream: &mut TcpStream,
     response: &StatusResponse,
@@ -103,7 +104,6 @@ pub async fn write_status_response(
 }
 
 #[tracing::instrument(skip(stream), err)]
-#[cfg_attr(feature = "autometrics", autometrics::autometrics)]
 pub async fn write_pong_response(
     stream: &mut TcpStream,
     payload: i64,

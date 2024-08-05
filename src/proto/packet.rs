@@ -24,6 +24,7 @@ impl Display for Packet {
 pub struct Handshake {
     pub protocol_version: i32,
     pub address: Hostname,
+    pub address_forge_version: Option<String>,
     pub port: u16,
     pub next_state: NextState,
 }

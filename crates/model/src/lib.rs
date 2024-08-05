@@ -12,6 +12,12 @@ impl From<String> for Hostname {
     }
 }
 
+impl From<&str> for Hostname {
+    fn from(value: &str) -> Self {
+        Hostname(Arc::from(value))
+    }
+}
+
 impl AsRef<str> for Hostname {
     fn as_ref(&self) -> &str {
         &self.0
