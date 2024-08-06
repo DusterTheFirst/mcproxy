@@ -1,15 +1,18 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
-use crate::metrics::tokio_collector::runtime::TokioRuntimeCollector;
+use crate::{config::schema::Config, metrics::tokio_collector::runtime::TokioRuntimeCollector};
 use mcproxy_model::Upstream;
+use minecraft_collector::MinecraftCollector;
 use prometheus_client::{
     encoding::EncodeLabelSet,
     metrics::{counter::Counter, family::Family, gauge::Gauge, info::Info},
     registry::Registry,
 };
+use tokio::sync::watch::Receiver;
 use tokio_collector::task::TokioTaskCollector;
 use tokio_metrics::TaskMonitor;
 
+mod minecraft_collector;
 mod tokio_collector;
 
 /// These are the labels used for the `build_info` metric.
@@ -36,7 +39,9 @@ pub struct ActiveConnectionMetrics {
     pub active_server_connections: Family<Upstream, Gauge>,
 }
 
-pub fn create_metrics() -> (
+pub fn create_metrics(
+    config: Receiver<Arc<Config>>,
+) -> (
     Registry,
     ConnectionMetrics,
     ActiveConnectionMetrics,
@@ -99,10 +104,57 @@ pub fn create_metrics() -> (
         &proxy_task_monitor,
     )));
 
+    // Minecraft Upstream Metrics
+    registry.register_collector(Box::new(MinecraftCollector::new(
+        tokio::runtime::Handle::current(),
+        config,
+    )));
+
     (
         registry,
         connection_metrics,
         active_connection_metrics,
         proxy_task_monitor,
     )
+}
+
+#[macro_export]
+macro_rules! metric {
+    ($ty:tt in $encoder:ident for $prefix:ident, $($metrics:ident)?.$field:ident, $help:literal) => {
+        metric!($ty in $encoder for $prefix, $($metrics)?.$field, $help, None)
+    };
+    ($ty:tt in $encoder:ident for $prefix:ident use $labels:ident, $($metrics:ident)?.$field:ident, $help:literal) => {
+        metric!($ty in $encoder for $prefix use $labels, $($metrics)?.$field, $help, None)
+    };
+    (@descriptor $type:ident => $encoder:ident, $prefix:ident, $field:ident, $help:literal, $unit:expr) => {
+        $encoder.encode_descriptor(
+            &[::core::convert::AsRef::<str>::as_ref(&$prefix), stringify!($field)].concat(),
+            $help,
+            $unit,
+            ::prometheus_client::metrics::MetricType::$type,
+        )?
+    };
+    (gauge in $encoder:ident for $prefix:ident $(use $labels:expr)?, $($metrics:ident)?.$field:ident, $help:literal, $unit:expr) => {
+        metric!(@descriptor Gauge => $encoder, $prefix, $field, $help, $unit)
+            $(.encode_family(&$labels)?)?
+            .encode_gauge(&($($metrics.)?$field as f64))?
+    };
+    (gauge_duration in $encoder:ident for $prefix:ident $(use $labels:expr)?, $($metrics:ident)?.$field:ident, $help:literal, None) => {
+        metric!(@descriptor Gauge => $encoder, $prefix, $field, $help, Some(&prometheus_client::registry::Unit::Seconds))
+            $(.encode_family(&$labels)?)?
+            .encode_gauge(&($($metrics.)?$field.as_secs_f64()))?
+    };
+    (counter in $encoder:ident for $prefix:ident $(use $labels:expr)?, $($metrics:ident)?.$field:ident, $help:literal, $unit:expr) => {
+        metric!(@descriptor Counter => $encoder, $prefix, $field, $help, $unit)
+            $(.encode_family(&$labels)?)?
+            .encode_counter(&($($metrics.)?$field as f64), None::<&prometheus_client::metrics::exemplar::Exemplar<(), f64>>)?
+    };
+    (counter_duration in $encoder:ident for $prefix:ident $(use $labels:expr)?, $($metrics:ident)?.$field:ident, $help:literal, None) => {
+        metric!(@descriptor Counter => $encoder, $prefix, $field, $help, Some(&prometheus_client::registry::Unit::Seconds))
+            $(.encode_family(&$labels)?)?
+            .encode_counter(
+                &($($metrics.)?$field.as_secs_f64()),
+                None::<&prometheus_client::metrics::exemplar::Exemplar<(), f64>>,
+            )?
+    };
 }

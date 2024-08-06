@@ -14,6 +14,7 @@ use tokio::{
     io::{self},
     net::TcpListener,
     sync::watch::{Receiver, Sender},
+    task,
 };
 use tracing::{debug, info};
 use tracing_error::{InstrumentError, TracedError};
@@ -45,9 +46,17 @@ pub async fn listen(
     let router = router.route(
         "/metrics",
         method_routing::get(|State::<Arc<_>>(registry)| async move {
-            let mut output = String::new();
-            match prometheus_client::encoding::text::encode(&mut output, &registry) {
-                Ok(()) => Ok((
+            let result = task::spawn_blocking(move || {
+                let mut output = String::new();
+
+                prometheus_client::encoding::text::encode(&mut output, &registry)?;
+
+                Ok::<_, std::fmt::Error>(output)
+            })
+            .await;
+
+            match result {
+                Ok(Ok(output)) => Ok((
                     [(
                         header::CONTENT_TYPE,
                         header::HeaderValue::from_static(
@@ -56,6 +65,7 @@ pub async fn listen(
                     )],
                     output,
                 )),
+                Ok(Err(error)) => Err((StatusCode::INTERNAL_SERVER_ERROR, error.to_string())),
                 Err(error) => Err((StatusCode::INTERNAL_SERVER_ERROR, error.to_string())),
             }
         })

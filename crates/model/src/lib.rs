@@ -18,9 +18,21 @@ impl From<&str> for Hostname {
     }
 }
 
+impl From<Arc<str>> for Hostname {
+    fn from(value: Arc<str>) -> Self {
+        Hostname(value)
+    }
+}
+
 impl AsRef<str> for Hostname {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl Display for Hostname {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 

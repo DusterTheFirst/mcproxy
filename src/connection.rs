@@ -37,9 +37,9 @@ macro_rules! timeout_break {
 pub async fn handle_connection(
     peer: SocketAddr,
     config: Arc<Config>,
-    client_stream: &mut TcpStream,
+    mut client_stream: TcpStream,
     #[cfg(feature = "metrics")] connection_metrics: crate::metrics::ConnectionMetrics,
-) -> Result<ControlFlow<(), (TcpStream, Upstream, Handshake)>, TracedError<io::Error>> {
+) -> Result<ControlFlow<(), (TcpStream, TcpStream, Upstream, Handshake)>, TracedError<io::Error>> {
     // TODO: Handle legacy ping
     trace!("new connection");
 
@@ -47,7 +47,8 @@ pub async fn handle_connection(
     connection_metrics.client_connections.inc();
 
     // First, the client sends a Handshake packet with its state set to 1.
-    let (handshake, handshake_packet) = timeout_break!(PING_TIMEOUT, read_handshake(client_stream));
+    let (handshake, handshake_packet) =
+        timeout_break!(PING_TIMEOUT, read_handshake(&mut client_stream));
 
     Span::current().record("address", handshake.address.as_ref());
     Span::current().record("next_state", handshake.next_state.to_string());
@@ -81,7 +82,7 @@ pub async fn handle_connection(
                     timeout_break!(
                         PING_TIMEOUT,
                         ping_response(
-                            client_stream,
+                            &mut client_stream,
                             config.placeholder_server.responses.no_mapping.as_ref()
                         )
                     );
@@ -137,7 +138,7 @@ pub async fn handle_connection(
                     timeout_break!(
                         PING_TIMEOUT,
                         ping_response(
-                            client_stream,
+                            &mut client_stream,
                             config.placeholder_server.responses.offline.as_ref()
                         )
                     );
@@ -187,5 +188,10 @@ pub async fn handle_connection(
 
     trace!("passing upstream to proxy");
 
-    Ok(ControlFlow::Continue((server_stream, upstream, handshake)))
+    Ok(ControlFlow::Continue((
+        client_stream,
+        server_stream,
+        upstream,
+        handshake,
+    )))
 }

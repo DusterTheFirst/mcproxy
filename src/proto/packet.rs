@@ -57,8 +57,9 @@ pub mod response {
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[cfg_attr(test, derive(schemars::JsonSchema))]
     pub struct Players {
-        pub max: u16,
-        pub online: u16,
+        pub max: u32, // Max supported by vanilla server is 2^31 - 1
+        pub online: u32,
+        #[serde(default)]
         pub sample: Vec<Player>,
     }
 
@@ -110,6 +111,17 @@ impl From<i32> for NextState {
             2 => NextState::Login,
             3 => NextState::Transfer,
             _ => NextState::Unknown(num),
+        }
+    }
+}
+
+impl From<NextState> for i32 {
+    fn from(val: NextState) -> Self {
+        match val {
+            NextState::Ping => 1,
+            NextState::Login => 2,
+            NextState::Transfer => 3,
+            NextState::Unknown(x) => x,
         }
     }
 }

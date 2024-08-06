@@ -30,11 +30,7 @@ async fn main() -> eyre::Result<()> {
 
     init_tracing_subscriber();
 
-    #[cfg(feature = "metrics")]
-    let (registry, connection_metrics, active_connection_metrics, proxy_task_monitor) =
-        metrics::create_metrics();
-
-    info!(features=?ENABLED_FEATURES, "proxy starting");
+    info!(features=?ENABLED_FEATURES, "loading config");
 
     let mut args = std::env::args_os();
     let config_file = args
@@ -47,6 +43,11 @@ async fn main() -> eyre::Result<()> {
     info!("loading config file");
     let initial_config: Arc<Config> = Arc::new(config::load(&config_file).await?);
     let (config_sender, config) = tokio::sync::watch::channel(initial_config.clone());
+
+    #[cfg(feature = "metrics")]
+    let (registry, connection_metrics, active_connection_metrics, proxy_task_monitor) =
+        metrics::create_metrics(config.clone());
+
     // let config = task::spawn(config::watch(config_file));
     if let Some(ui_config) = initial_config.ui {
         #[cfg(feature = "ui")]
@@ -62,6 +63,8 @@ async fn main() -> eyre::Result<()> {
         #[cfg(not(feature = "ui"))]
         let _ = (config_sender, ui_config);
     }
+
+    info!("proxy starting");
 
     let listener = TcpListener::bind(initial_config.proxy.listen_address)
         .await
@@ -79,7 +82,7 @@ async fn main() -> eyre::Result<()> {
         let stream = listener.accept().await;
 
         match stream {
-            Ok((mut client_stream, _address)) => {
+            Ok((client_stream, _address)) => {
                 // Clone pointers to the address map and server responses
                 let config = config.borrow().clone();
                 #[cfg(feature = "metrics")]
@@ -97,13 +100,18 @@ async fn main() -> eyre::Result<()> {
                     match handle_connection(
                         peer,
                         config,
-                        &mut client_stream,
+                        client_stream,
                         #[cfg(feature = "metrics")]
                         connection_metrics,
                     )
                     .await
                     {
-                        Ok(ControlFlow::Continue((server_stream, upstream, handshake))) => {
+                        Ok(ControlFlow::Continue((
+                            client_stream,
+                            server_stream,
+                            upstream,
+                            handshake,
+                        ))) => {
                             #[cfg(feature = "metrics")]
                             active_connection_metrics
                                 .active_server_connections
