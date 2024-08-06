@@ -102,6 +102,24 @@ impl Collector for MinecraftCollector {
 
             {
                 let mut metric_encoder = encoder.encode_descriptor(
+                    "mcproxy_upstream",
+                    "metric for tracking upstream info",
+                    None,
+                    prometheus_client::metrics::MetricType::Info,
+                )?;
+
+                for (upstream, (_, status_response)) in healthy_upstream_responses.clone() {
+                    // TODO: merge label set?
+                    metric_encoder.encode_info(&[
+                        ("minecraft_version", status_response.version.name.as_ref()),
+                        ("host", upstream.host.as_ref()),
+                        ("port", &upstream.port.to_string()),
+                    ])?;
+                }
+            }
+
+            {
+                let mut metric_encoder = encoder.encode_descriptor(
                     "mcproxy_upstream_response_time",
                     "round trip time to to the server",
                     None,
