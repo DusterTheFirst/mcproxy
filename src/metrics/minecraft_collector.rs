@@ -117,7 +117,7 @@ impl Collector for MinecraftCollector {
 
             {
                 let mut metric_encoder = encoder.encode_descriptor(
-                    "mcproxy_upstream_players_online_count",
+                    "mcproxy_upstream_players_online",
                     "current online players",
                     None,
                     prometheus_client::metrics::MetricType::Gauge,
@@ -134,7 +134,7 @@ impl Collector for MinecraftCollector {
 
             {
                 let mut metric_encoder = encoder.encode_descriptor(
-                    "mcproxy_upstream_players_max_count",
+                    "mcproxy_upstream_players_max",
                     "configured maximum allowed players",
                     None,
                     prometheus_client::metrics::MetricType::Gauge,
