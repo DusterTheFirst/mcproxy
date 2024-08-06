@@ -1,4 +1,8 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use mcproxy_model::Upstream;
 use prometheus_client::collector::Collector;
@@ -67,6 +71,7 @@ impl Collector for MinecraftCollector {
             });
         }
 
+        let scrape_start = Instant::now();
         self.tokio_runtime.block_on(async {
             let mut upstream_responses = Vec::with_capacity(futures.len());
 
@@ -167,7 +172,15 @@ impl Collector for MinecraftCollector {
                 }
             }
 
-            // TODO: server_version or other metadata
+            let duration = scrape_start.elapsed();
+            encoder
+                .encode_descriptor(
+                    "mcproxy_upstream_collect_duration",
+                    "length of time to process current scrape",
+                    Some(&prometheus_client::registry::Unit::Seconds),
+                    prometheus_client::metrics::MetricType::Gauge,
+                )?
+                .encode_gauge(&duration.as_secs_f64())?;
 
             Ok(())
         })
