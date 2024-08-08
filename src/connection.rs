@@ -56,6 +56,8 @@ pub async fn handle_connection(
         forge_version = handshake
             .address_forge_version
             .as_ref()
+            .map(field::display)
+            .as_ref()
             .map(|a| a as &dyn tracing::Value)
             .unwrap_or(&field::Empty),
         "handshake received"

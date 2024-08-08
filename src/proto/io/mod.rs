@@ -1,4 +1,5 @@
 use mcproxy_model::Hostname;
+use smol_str::SmolStr;
 use std::convert::TryInto;
 use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::Span;
@@ -107,7 +108,7 @@ pub async fn read_handshake(
         Handshake {
             protocol_version,
             address: Hostname::from(address),
-            address_forge_version: address_forge.map(String::from),
+            address_forge_version: address_forge.map(SmolStr::from),
             port,
             next_state: NextState::from(next_state),
         },

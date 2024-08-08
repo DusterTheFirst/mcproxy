@@ -100,7 +100,7 @@ pub async fn listen(
 }
 
 #[axum::debug_handler]
-async fn print_config(State(config): State<Receiver<Arc<Config>>>) -> Html<std::string::String> {
+async fn print_config(State(config): State<Receiver<Arc<Config>>>) -> Html<String> {
     Html(config_table(config.borrow().clone()))
 }
 
@@ -110,7 +110,7 @@ async fn config_reload(
     State((sender, config_path)): State<(Sender<Arc<Config>>, Arc<Path>)>,
 ) -> Result<(StatusCode, &'static str), (StatusCode, String)> {
     let new_config = config::load(&config_path).await.map_err(|error| {
-        let mut response = String::from("Failed to reload configuration");
+        let mut response = String::from("Failed to reload configuration: ");
 
         writeln!(response, "{error}").unwrap();
 

@@ -31,7 +31,7 @@ tokio-console = ["dep:console-subscriber"]
 members = ["crates/*"]
 
 [workspace.dependencies]
-schemars = { version = "1.0.0-alpha.2", features = ["smol_str02"] }
+schemars = { version = "1.0.0-alpha.2", features = ["smol_str02", "uuid1"] }
 
 eyre    = "0.6.12"
 serde   = { version = "1.0", features = ["derive", "rc"] }
@@ -55,6 +55,7 @@ toml               = { version = "0.8.14", default-features = false, features = 
 tracing            = { workspace = true }
 tracing-error      = { version = "0.2.0", features = ["traced-error"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+uuid               = { version = "1.10.0", features = ["serde", "v4"] }
 
 # metrics
 prometheus-client = { workspace = true, optional = true }

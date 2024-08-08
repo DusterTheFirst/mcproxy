@@ -1,5 +1,7 @@
 use super::RawTextComponent;
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
+use uuid::Uuid;
 
 /// The JSON response to a ping
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -17,7 +19,7 @@ pub struct StatusResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Version {
-    pub name: String,
+    pub name: SmolStr,
     pub protocol: i32,
 }
 
@@ -33,6 +35,6 @@ pub struct Players {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(test, derive(schemars::JsonSchema))]
 pub struct Player {
-    pub name: String,
-    pub id: String,
+    pub name: SmolStr,
+    pub id: Uuid,
 }

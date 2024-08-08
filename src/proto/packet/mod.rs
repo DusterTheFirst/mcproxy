@@ -1,5 +1,6 @@
 use mcproxy_model::Hostname;
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use std::{
     collections::VecDeque,
     fmt::{self, Display, Formatter},
@@ -31,7 +32,7 @@ impl Display for Packet {
 pub struct Handshake {
     pub protocol_version: i32,
     pub address: Hostname,
-    pub address_forge_version: Option<String>,
+    pub address_forge_version: Option<SmolStr>,
     pub port: u16,
     pub next_state: NextState,
 }
