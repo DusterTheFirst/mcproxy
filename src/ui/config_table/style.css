@@ -1,0 +1,55 @@
+:root {
+    color-scheme: dark light;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* Table Styles */
+
+table,
+td,
+th {
+    border: 1px solid hsl(0, 0%, 50%);
+    border-collapse: collapse;
+    padding: 0.3em 0.5em;
+}
+
+/* Nested Tables */
+td:has(table) {
+    padding: 0;
+}
+
+td>table {
+    padding: 0;
+    border: none;
+    width: 100%;
+
+    &>:is(tbody, thead)>tr:first-child>:is(td, th) {
+        border-block-start: none;
+    }
+
+    &>:is(tbody, thead)>tr:last-child>:is(td, th) {
+        border-block-end: none;
+    }
+
+    &>:is(tbody, thead)>tr>:is(td, th):first-child {
+        border-inline-start: none;
+    }
+
+    &>:is(tbody, thead)>tr>:is(td, th):last-child {
+        border-inline-end: none;
+    }
+}
+
+/* Minecraft Text Components */
+@font-face {
+    font-family: 'Monocraft';
+    src: url(/monocraft.ttf) format('truetype');
+}
+
+.mc-font {
+    font-family: 'Monocraft';
+}
+
+.obfuscated {
+    outline: 1px solid red; /* FIXME: ? */
+}

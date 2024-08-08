@@ -2,7 +2,7 @@ use std::{fmt::Display, net::SocketAddr, sync::Arc};
 
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, schemars::JsonSchema, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Deserialize, schemars::JsonSchema, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 #[serde(transparent)]
 pub struct Hostname(Arc<str>);
 

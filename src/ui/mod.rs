@@ -8,8 +8,10 @@ use std::{
 use axum::{
     extract::State,
     http::{header, HeaderValue, StatusCode},
+    response::Html,
     routing::method_routing,
 };
+use config_table::config_table;
 use tokio::{
     io::{self},
     net::TcpListener,
@@ -24,6 +26,8 @@ use crate::config::{
     schema::{Config, UiServerConfig},
 };
 
+mod config_table;
+
 pub async fn listen(
     config: UiServerConfig,
     config_path: PathBuf,
@@ -33,6 +37,21 @@ pub async fn listen(
 ) -> Result<(), TracedError<io::Error>> {
     let router = axum::Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
+        .route(
+            "/monocraft.ttf",
+            method_routing::get(|| async {
+                (
+                    [
+                        (
+                            header::CACHE_CONTROL,
+                            HeaderValue::from_static("public, max-age=604800, immutable"),
+                        ),
+                        (header::CONTENT_TYPE, HeaderValue::from_static("font/ttf")),
+                    ],
+                    include_bytes!("fonts/Monocraft-no-ligatures.ttf"),
+                )
+            }),
+        )
         .route(
             "/-/reload",
             method_routing::post(config_reload).with_state((sender, Arc::from(config_path))),
@@ -81,16 +100,8 @@ pub async fn listen(
 }
 
 #[axum::debug_handler]
-async fn print_config(
-    State(config): State<Receiver<Arc<Config>>>,
-) -> (
-    [(axum::http::HeaderName, axum::http::HeaderValue); 1],
-    std::string::String,
-) {
-    (
-        [(header::CONTENT_TYPE, HeaderValue::from_static("text/plain"))],
-        format!("{:#?}", *config.borrow()),
-    )
+async fn print_config(State(config): State<Receiver<Arc<Config>>>) -> Html<std::string::String> {
+    Html(config_table(config.borrow().clone()))
 }
 
 #[tracing::instrument(skip_all)]
