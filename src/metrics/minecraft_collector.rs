@@ -11,7 +11,7 @@ use tracing::debug;
 
 use crate::{
     config::schema::Config,
-    proto::{io::request::server_list_ping, response::StatusResponse},
+    proto::{io::request::server_list_ping, packet::response::StatusResponse},
 };
 
 #[derive(Debug)]

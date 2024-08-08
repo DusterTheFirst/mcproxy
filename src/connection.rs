@@ -6,15 +6,13 @@ use tracing::Instrument;
 use tracing::{debug, error, field, trace, trace_span, warn, Span};
 use tracing_error::TracedError;
 
+use crate::proto::packet::{Handshake, NextState};
 use crate::{
     config::schema::Config,
-    proto::{
-        io::{
-            read_handshake,
-            response::{login_response, ping_response},
-            write_packet,
-        },
-        Handshake, NextState,
+    proto::io::{
+        read_handshake,
+        response::{login_response, ping_response},
+        write_packet,
     },
 };
 

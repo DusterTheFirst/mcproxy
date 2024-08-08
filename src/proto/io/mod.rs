@@ -4,7 +4,12 @@ use tokio::io::{self, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tracing::Span;
 use tracing_error::{InstrumentResult, TracedError};
 
-use crate::proto::{response::StatusResponse, string, var_int, Handshake, NextState, Packet};
+use crate::proto::{packet::NextState, string};
+
+use super::{
+    packet::{response::StatusResponse, Handshake, Packet},
+    var_int,
+};
 
 pub mod request;
 pub mod response;

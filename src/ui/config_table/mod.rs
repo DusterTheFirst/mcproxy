@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    convert::identity,
     fmt::{Display, Write},
     sync::Arc,
 };
@@ -9,9 +8,9 @@ use crate::{
     config::schema::{
         Config, PlaceholderServerConfig, PlaceholderServerResponses, ProxyConfig, UiServerConfig,
     },
-    proto::{
-        packet::TextComponentObject,
+    proto::packet::{
         response::{Player, Players, StatusResponse, Version},
+        ElaboratedTextComponent,
     },
 };
 
@@ -39,8 +38,6 @@ impl<W: Write> Write for Unindenter<W> {
                     if char == '\n' {
                         self.0.write_str(&s[start..=i])?;
                         state = State::Indentation;
-                    } else {
-                        state = State::Text { start }
                     }
                 }
                 State::Indentation => {
@@ -179,8 +176,9 @@ pub fn config_table(config: Arc<Config>) -> String {
                                                                         w,
                                                                         &"name",
                                                                         &|w| {
-                                                                            write!(w, "{name}")
-                                                                                .unwrap()
+                                                                            for component in ElaboratedTextComponent::decode_formatting_codes(name) {
+                                                                                text_component_html(w, component);
+                                                                            }
                                                                         },
                                                                     );
                                                                     config_value(w, &"id", &|w| {
@@ -196,10 +194,15 @@ pub fn config_table(config: Arc<Config>) -> String {
 
                                         config_value(w, &"description", &|w| {
                                             write!(w, "<pre><code class=\"mc-font\">").unwrap();
-                                            text_component_html(
-                                                w,
-                                                TextComponentObject::from(description.clone()),
-                                            );
+                                            let components =
+                                                ElaboratedTextComponent::from_text_component(
+                                                    description.clone(),
+                                                );
+
+                                            for component in components {
+                                                text_component_html(w, component);
+                                            }
+
                                             write!(w, "</code></pre>").unwrap();
                                         });
                                     })
@@ -217,8 +220,8 @@ pub fn config_table(config: Arc<Config>) -> String {
     html.into_inner()
 }
 
-fn text_component_html(w: &mut dyn Write, component: TextComponentObject) {
-    let TextComponentObject {
+fn text_component_html(w: &mut dyn Write, component: ElaboratedTextComponent) {
+    let ElaboratedTextComponent {
         text,
         bold,
         italic,
@@ -226,15 +229,9 @@ fn text_component_html(w: &mut dyn Write, component: TextComponentObject) {
         strikethrough,
         obfuscated,
         color,
-        extra,
     } = component;
 
     write!(w, "<span").unwrap();
-
-    let bold = bold.is_some_and(identity);
-    let italic = italic.is_some_and(identity);
-    let underlined = underlined.is_some_and(identity);
-    let strikethrough = strikethrough.is_some_and(identity);
 
     if bold || italic || underlined || strikethrough || color.is_some() {
         write!(w, " style=\"").unwrap();
@@ -260,15 +257,11 @@ fn text_component_html(w: &mut dyn Write, component: TextComponentObject) {
         write!(w, "\"").unwrap();
     }
 
-    if obfuscated.is_some_and(identity) {
+    if obfuscated {
         write!(w, " class=\"obfuscated\"").unwrap();
     }
 
-    write!(w, ">{text}").unwrap();
-    for component in extra.unwrap_or_default() {
-        text_component_html(w, component.into());
-    }
-    write!(w, "</span>").unwrap();
+    write!(w, ">{text}</span>").unwrap();
 }
 
 fn tr_td(w: &mut dyn Write, inner: &dyn Fn(&mut dyn Write)) {

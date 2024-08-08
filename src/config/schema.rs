@@ -58,7 +58,7 @@ pub struct UiServerConfig {
 mod test {
     use crate::{
         config::{schema::GenericConfig, util::Raw},
-        proto::response::StatusResponse,
+        proto::packet::response::StatusResponse,
     };
 
     fn generate_schema_for<T: ?Sized + schemars::JsonSchema>(filename: &str) {

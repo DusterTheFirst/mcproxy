@@ -4,7 +4,11 @@ use tokio::{
 };
 use tracing_error::{InstrumentError, TracedError};
 
-use crate::proto::{io::write_packet, response::StatusResponse, string, TextComponent};
+use crate::proto::{
+    io::write_packet,
+    packet::{response::StatusResponse, RawTextComponent},
+    string,
+};
 
 use super::{
     read_packet, read_ping_pong, read_status_request, write_ping_pong, write_status_response,
@@ -39,7 +43,7 @@ pub async fn ping_response(
 #[tracing::instrument(skip_all)]
 pub async fn login_response(
     stream: TcpStream,
-    response: Option<&TextComponent>,
+    response: Option<&RawTextComponent>,
 ) -> Result<(), TracedError<io::Error>> {
     let mut stream = BufStream::new(stream);
 

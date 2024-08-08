@@ -2,7 +2,7 @@ use std::{fmt::Debug, path::PathBuf};
 
 use serde::{de::DeserializeOwned, Deserialize};
 
-use crate::proto::response::StatusResponse;
+use crate::proto::packet::response::StatusResponse;
 
 mod private {
     pub trait Sealed {}

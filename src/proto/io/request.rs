@@ -10,7 +10,7 @@ use tokio::{
 };
 use tracing_error::{InstrumentError, TracedError};
 
-use crate::proto::{response::StatusResponse, Handshake, NextState};
+use crate::proto::packet::{response::StatusResponse, Handshake, NextState};
 
 use super::{
     read_ping_pong, read_status_response, write_handshake, write_ping_pong, write_status_request,
