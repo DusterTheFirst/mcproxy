@@ -30,7 +30,7 @@ async fn main() -> eyre::Result<()> {
 
     init_tracing_subscriber();
 
-    info!(features=?ENABLED_FEATURES, "loading config");
+    info!(features=?ENABLED_FEATURES, "welcome to mcproxy");
 
     let mut args = std::env::args_os();
     let config_file = args

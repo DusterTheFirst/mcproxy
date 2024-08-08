@@ -13,7 +13,7 @@ protocol = 0
 # The players listing
 [players]
 # The maximum player count
-max = 1
+max = 0
 # The online player count
 online = 0
 
